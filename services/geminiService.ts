@@ -47,9 +47,37 @@ const SYSTEM_INSTRUCTION = `
 const getClient = () => {
   const key = process.env.API_KEY;
   if (!key || key.length < 5) {
-    throw new Error("API Key is missing or invalid. Please configure the 'API_KEY' environment variable in your Netlify/Vercel settings.");
+    throw new Error("API Key is missing. Please add API_KEY to your Vercel/Netlify Environment Variables.");
   }
   return new GoogleGenAI({ apiKey: key });
+};
+
+// Common error handler
+const handleApiError = (error: any, type: 'diet' | 'workout') => {
+  console.error(`Error generating ${type} plan:`, error);
+  
+  const errorMessage = error.toString().toLowerCase();
+  
+  if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('resource_exhausted')) {
+    return `<div class="p-6 bg-red-50 border-l-4 border-red-600 text-red-700">
+      <h3 class="font-bold text-lg mb-2">⚠️ Daily Limit Reached</h3>
+      <p>The free Google AI quota for this key has been exhausted for today.</p>
+      <p class="mt-2 text-sm text-gray-600"><strong>Fix:</strong> Please try again in a few hours, or use a different Google API Key.</p>
+    </div>`;
+  }
+
+  if (errorMessage.includes('key') || errorMessage.includes('403')) {
+    return `<div class="p-6 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800">
+      <h3 class="font-bold text-lg mb-2">🔑 Invalid API Key</h3>
+      <p>The API Key configured in the app is incorrect or has expired.</p>
+    </div>`;
+  }
+
+  return `<div class="p-6 bg-gray-50 border-l-4 border-gray-500 text-gray-700">
+    <h3 class="font-bold text-lg mb-2">😓 Connection Error</h3>
+    <p>We couldn't talk to the AI. Please check your internet connection.</p>
+    <p class="text-xs mt-2 text-gray-500">Details: ${error.message || "Unknown error"}</p>
+  </div>`;
 };
 
 export const generateDietPlan = async (data: DietFormData, skippedMeals: string[] = []): Promise<string> => {
@@ -104,8 +132,7 @@ export const generateDietPlan = async (data: DietFormData, skippedMeals: string[
     return response.text || "Failed to generate diet plan. Received empty response.";
 
   } catch (error: any) {
-    console.error("Error generating diet plan:", error);
-    return `Error: ${error.message || "Unknown error occurred"}. Please check your internet connection and ensure your API Key is valid.`;
+    return handleApiError(error, 'diet');
   }
 };
 
@@ -150,7 +177,6 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
     return response.text || "Failed to generate workout plan. Received empty response.";
 
   } catch (error: any) {
-    console.error("Error generating workout plan:", error);
-    return `Error: ${error.message || "Unknown error occurred"}. Please check your internet connection and ensure your API Key is valid.`;
+    return handleApiError(error, 'workout');
   }
 };
