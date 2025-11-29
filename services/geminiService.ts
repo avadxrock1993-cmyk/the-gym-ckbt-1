@@ -2,8 +2,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { DietFormData, WorkoutFormData, ExperienceLevel } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const MODEL_NAME = 'gemini-2.5-flash';
 
 // Instructions for HTML styling and Language detection
@@ -45,98 +43,114 @@ const SYSTEM_INSTRUCTION = `
   5. CLEAN & MINIMAL: Do NOT use emojis, icons, or ASCII art in the text. Keep the output professional and text-only.
 `;
 
+// Helper to check key and get client
+const getClient = () => {
+  const key = process.env.API_KEY;
+  if (!key || key.length < 5) {
+    throw new Error("API Key is missing or invalid. Please configure the 'API_KEY' environment variable in your Netlify/Vercel settings.");
+  }
+  return new GoogleGenAI({ apiKey: key });
+};
+
 export const generateDietPlan = async (data: DietFormData, skippedMeals: string[] = []): Promise<string> => {
-  const routineDetails = [
-    data.wakeupTime ? `- Wake up time: ${data.wakeupTime}` : '',
-    data.breakfast ? `- Typical Breakfast: ${data.breakfast}` : '',
-    data.lunch ? `- Typical Lunch: ${data.lunch}` : '',
-    data.eveningSnack ? `- Typical Evening Snack: ${data.eveningSnack}` : '',
-    data.postWorkout ? `- Typical Post-Workout: ${data.postWorkout}` : '',
-    data.dinner ? `- Typical Dinner: ${data.dinner}` : '',
-  ].filter(Boolean).join('\n');
-
-  const skipInstruction = skippedMeals.length > 0 
-    ? `IMPORTANT MODIFICATION: The user wants to SKIP the following meals: ${skippedMeals.join(', ')}. Do not include these meals in the plan. Redistribute the required calories and macros to the remaining meals.` 
-    : '';
-
-  const prompt = `
-    ${SYSTEM_INSTRUCTION}
-
-    TASK: Create a personalized Diet Plan.
-    
-    CLIENT PROFILE:
-    - Name: ${data.name} (Address the client by name in the plan)
-    - Gender: ${data.gender}
-    - Age: ${data.age}
-    - Weight: ${data.weight} kg
-    - Height: ${data.height}
-    - Dietary Preference: ${data.preference} (Strictly adhere to this!)
-    - GOAL: ${data.goal} (Adjust calories/macros accordingly)
-    
-    CURRENT ROUTINE (Use this language style for the output):
-    ${routineDetails}
-
-    ${skipInstruction}
-
-    REQUIREMENTS:
-    1. Calculate BMR and TDEE (briefly show calculation).
-    2. Create a Daily Meal Plan Table (Time, Meal Name, Food Items, Macros).
-    3. Provide precise quantities.
-    4. If specific meals are skipped, ensure the user still hits their nutrition targets for their goal: ${data.goal}.
-    5. Add a "Note" section for Hydration and Cooking tips.
-  `;
-
   try {
+    const ai = getClient();
+    
+    const routineDetails = [
+      data.wakeupTime ? `- Wake up time: ${data.wakeupTime}` : '',
+      data.breakfast ? `- Typical Breakfast: ${data.breakfast}` : '',
+      data.lunch ? `- Typical Lunch: ${data.lunch}` : '',
+      data.eveningSnack ? `- Typical Evening Snack: ${data.eveningSnack}` : '',
+      data.postWorkout ? `- Typical Post-Workout: ${data.postWorkout}` : '',
+      data.dinner ? `- Typical Dinner: ${data.dinner}` : '',
+    ].filter(Boolean).join('\n');
+
+    const skipInstruction = skippedMeals.length > 0 
+      ? `IMPORTANT MODIFICATION: The user wants to SKIP the following meals: ${skippedMeals.join(', ')}. Do not include these meals in the plan. Redistribute the required calories and macros to the remaining meals.` 
+      : '';
+
+    const prompt = `
+      ${SYSTEM_INSTRUCTION}
+
+      TASK: Create a personalized Diet Plan.
+      
+      CLIENT PROFILE:
+      - Name: ${data.name} (Address the client by name in the plan)
+      - Gender: ${data.gender}
+      - Age: ${data.age}
+      - Weight: ${data.weight} kg
+      - Height: ${data.height}
+      - Dietary Preference: ${data.preference} (Strictly adhere to this!)
+      - GOAL: ${data.goal} (Adjust calories/macros accordingly)
+      
+      CURRENT ROUTINE (Use this language style for the output):
+      ${routineDetails}
+
+      ${skipInstruction}
+
+      REQUIREMENTS:
+      1. Calculate BMR and TDEE (briefly show calculation).
+      2. Create a Daily Meal Plan Table (Time, Meal Name, Food Items, Macros).
+      3. Provide precise quantities.
+      4. If specific meals are skipped, ensure the user still hits their nutrition targets for their goal: ${data.goal}.
+      5. Add a "Note" section for Hydration and Cooking tips.
+    `;
+
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
     });
-    return response.text || "Failed to generate diet plan. Please try again.";
-  } catch (error) {
+    
+    return response.text || "Failed to generate diet plan. Received empty response.";
+
+  } catch (error: any) {
     console.error("Error generating diet plan:", error);
-    return "An error occurred while communicating with the AI. Please check your connection.";
+    return `Error: ${error.message || "Unknown error occurred"}. Please check your internet connection and ensure your API Key is valid.`;
   }
 };
 
 export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string> => {
-  const isAdvanced = data.experience === ExperienceLevel.ADVANCED || data.experience === ExperienceLevel.INTERMEDIATE;
-  
-  const splitInstruction = isAdvanced && data.split
-    ? `The user is ${data.experience} and explicitly requested a "${data.split}" split.` 
-    : `The user is a ${data.experience}. Suggest the best safe split for them (e.g., Full Body or Upper/Lower).`;
-
-  const prompt = `
-    ${SYSTEM_INSTRUCTION}
-
-    TASK: Create a personalized Workout Plan.
-
-    CLIENT PROFILE:
-    - Name: ${data.name} (Address the client by name in the plan)
-    - Gender: ${data.gender}
-    - Experience Level: ${data.experience}
-    - Days available: ${data.daysPerWeek} days/week
-    - Session duration: ${data.durationPerDay} minutes
-    - Goal/Focus: ${data.focus}
-    
-    SPLIT STRATEGY:
-    ${splitInstruction}
-
-    REQUIREMENTS:
-    1. Create a Weekly Schedule Table (Day, Muscle Group, Focus).
-    2. For each workout day, provide a detailed Table (Exercise, Sets, Reps, Rest).
-    3. Include Warm-up and Cool-down routines.
-    4. Since the user is ${data.experience}, adjust volume and intensity accordingly.
-    5. If Advanced/Double Muscle, ensure high volume. If Beginner, focus on form and compound movements.
-  `;
-
   try {
+    const ai = getClient();
+
+    const isAdvanced = data.experience === ExperienceLevel.ADVANCED || data.experience === ExperienceLevel.INTERMEDIATE;
+    
+    const splitInstruction = isAdvanced && data.split
+      ? `The user is ${data.experience} and explicitly requested a "${data.split}" split.` 
+      : `The user is a ${data.experience}. Suggest the best safe split for them (e.g., Full Body or Upper/Lower).`;
+
+    const prompt = `
+      ${SYSTEM_INSTRUCTION}
+
+      TASK: Create a personalized Workout Plan.
+
+      CLIENT PROFILE:
+      - Name: ${data.name} (Address the client by name in the plan)
+      - Gender: ${data.gender}
+      - Experience Level: ${data.experience}
+      - Days available: ${data.daysPerWeek} days/week
+      - Session duration: ${data.durationPerDay} minutes
+      - Goal/Focus: ${data.focus}
+      
+      SPLIT STRATEGY:
+      ${splitInstruction}
+
+      REQUIREMENTS:
+      1. Create a Weekly Schedule Table (Day, Muscle Group, Focus).
+      2. For each workout day, provide a detailed Table (Exercise, Sets, Reps, Rest).
+      3. Include Warm-up and Cool-down routines.
+      4. Since the user is ${data.experience}, adjust volume and intensity accordingly.
+      5. If Advanced/Double Muscle, ensure high volume. If Beginner, focus on form and compound movements.
+    `;
+
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
     });
-    return response.text || "Failed to generate workout plan. Please try again.";
-  } catch (error) {
+    return response.text || "Failed to generate workout plan. Received empty response.";
+
+  } catch (error: any) {
     console.error("Error generating workout plan:", error);
-    return "An error occurred while communicating with the AI. Please check your connection.";
+    return `Error: ${error.message || "Unknown error occurred"}. Please check your internet connection and ensure your API Key is valid.`;
   }
 };
