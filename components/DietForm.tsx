@@ -20,12 +20,14 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
     height: '',
     preference: DietPreference.VEG,
     goal: DietGoal.WEIGHT_LOSS,
+    excludedFoods: '',
     wakeupTime: '',
     breakfast: '',
     lunch: '',
     eveningSnack: '',
     postWorkout: '',
-    dinner: ''
+    dinner: '',
+    sleepTime: ''
   });
 
   // Health Conditions State
@@ -240,6 +242,22 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
           />
         </div>
 
+        {/* Foods to Avoid (Optional) */}
+        <div className="bg-white p-4 rounded-lg border-2 border-red-100 shadow-sm">
+          <label className="block text-lg font-bold text-red-800 mb-2 flex items-center">
+            🚫 Foods to Avoid <span className="ml-2 text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Optional</span>
+          </label>
+          <p className="text-xs text-gray-500 mb-2">Any allergies or foods you simply dislike?</p>
+          <input 
+            type="text" 
+            name="excludedFoods"
+            value={formData.excludedFoods}
+            onChange={handleChange}
+            className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none text-sm" 
+            placeholder="e.g. Mushrooms, Brinjal, Peanuts, Milk, Soy" 
+          />
+        </div>
+
         {/* Optional Daily Routine */}
         <div>
           <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Daily Routine <span className="text-sm font-normal text-gray-500 ml-2">(Optional)</span></h3>
@@ -267,6 +285,10 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
              <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase">Dinner</label>
               <input type="text" name="dinner" value={formData.dinner} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="Current dinner" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase">Sleep Time</label>
+              <input type="text" name="sleepTime" value={formData.sleepTime} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. 10:30 PM" />
             </div>
           </div>
         </div>

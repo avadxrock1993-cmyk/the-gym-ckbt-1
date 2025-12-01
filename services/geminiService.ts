@@ -78,6 +78,7 @@ export const generateDietPlan = async (data: DietFormData, skippedMeals: string[
       data.eveningSnack ? `Snk: ${data.eveningSnack}` : '',
       data.postWorkout ? `P.WO: ${data.postWorkout}` : '',
       data.dinner ? `Dnr: ${data.dinner}` : '',
+      data.sleepTime ? `Sleep: ${data.sleepTime}` : '',
     ].filter(Boolean).join(' | ');
 
     const skipInstruction = skippedMeals.length > 0 
@@ -88,12 +89,17 @@ export const generateDietPlan = async (data: DietFormData, skippedMeals: string[
       ? `HEALTH CONDITIONS: ${data.healthConditions}. CRITICAL: ANALYZE these issues. Adjust foods accordingly (e.g., Low GI for Diabetes, Iodine for Thyroid, Low Sodium for BP). State the adjustments made.` 
       : 'No specific health issues.';
 
+    const excludedFoodsInstruction = data.excludedFoods
+      ? `EXCLUDED FOODS: ${data.excludedFoods}. CRITICAL: Do NOT include these foods in the plan.`
+      : '';
+
     const prompt = `
       ${SYSTEM_INSTRUCTION}
       TYPE: Diet Plan.
       USER: ${data.name}, ${data.gender}, Age ${data.age}, ${data.weight}kg, ${data.height}.
       GOAL: ${data.goal}. PREF: ${data.preference}.
       ${healthInstruction}
+      ${excludedFoodsInstruction}
       ROUTINE: ${routineDetails}
       ${skipInstruction}
 

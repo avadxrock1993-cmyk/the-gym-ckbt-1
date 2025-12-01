@@ -45,13 +45,15 @@ export interface DietFormData {
   height: string;
   preference: DietPreference;
   goal: DietGoal;
-  healthConditions?: string; // New field for health issues
+  healthConditions?: string;
+  excludedFoods?: string; // New field for specific food exclusions
   wakeupTime?: string;
   breakfast?: string;
   lunch?: string;
   eveningSnack?: string;
   postWorkout?: string;
   dinner?: string;
+  sleepTime?: string;
 }
 
 export interface WorkoutFormData {
@@ -62,7 +64,7 @@ export interface WorkoutFormData {
   focus: 'Cardio' | 'Strength' | 'Mix' | 'Powerlifting';
   experience: ExperienceLevel;
   split?: WorkoutSplit;
-  healthConditions?: string; // New field for health issues
+  healthConditions?: string;
   // Powerlifting Specifics
   currentSquat?: string;
   currentBench?: string;
