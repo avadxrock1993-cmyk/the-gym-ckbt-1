@@ -7,6 +7,10 @@ interface DietFormProps {
   onCancel: () => void;
 }
 
+const COMMON_CONDITIONS = [
+  "Thyroid", "PCOS/PCOD", "Diabetes (Sugar)", "High BP", "Low BP", "Digestion Issues"
+];
+
 const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
   const [formData, setFormData] = useState<DietFormData>({
     name: '',
@@ -24,6 +28,10 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
     dinner: ''
   });
 
+  // Health Conditions State
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [otherCondition, setOtherCondition] = useState('');
+
   // Height Unit State: true = cm, false = ft/in
   const [isMetric, setIsMetric] = useState(true);
   const [heightFt, setHeightFt] = useState('');
@@ -32,6 +40,14 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const toggleCondition = (condition: string) => {
+    setSelectedConditions(prev => 
+      prev.includes(condition) 
+        ? prev.filter(c => c !== condition) 
+        : [...prev, condition]
+    );
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -45,7 +61,17 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
       finalHeight = `${formData.height} cm`;
     }
 
-    onSubmit({ ...formData, height: finalHeight });
+    // Combine health conditions
+    let finalHealth = selectedConditions.join(', ');
+    if (otherCondition.trim()) {
+      finalHealth = finalHealth ? `${finalHealth}, ${otherCondition}` : otherCondition;
+    }
+
+    onSubmit({ 
+      ...formData, 
+      height: finalHeight,
+      healthConditions: finalHealth 
+    });
   };
 
   return (
@@ -182,6 +208,36 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
               <span className="ml-3 text-lg font-bold text-gray-800 group-hover:text-red-600 transition-colors">Both</span>
             </label>
           </div>
+        </div>
+
+        {/* Health Issues (Optional) */}
+        <div className="bg-white p-4 rounded-lg border-2 border-red-100 shadow-sm">
+          <label className="block text-lg font-bold text-red-800 mb-3 flex items-center">
+            🏥 Health Issues / Conditions <span className="ml-2 text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Optional</span>
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+            {COMMON_CONDITIONS.map((condition) => (
+              <label key={condition} className={`
+                flex items-center p-2 rounded-lg border cursor-pointer text-sm font-semibold transition-colors
+                ${selectedConditions.includes(condition) ? 'bg-red-50 border-red-500 text-red-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}
+              `}>
+                <input 
+                  type="checkbox" 
+                  checked={selectedConditions.includes(condition)}
+                  onChange={() => toggleCondition(condition)}
+                  className="w-4 h-4 text-red-600 mr-2 rounded focus:ring-red-500 accent-red-600"
+                />
+                {condition}
+              </label>
+            ))}
+          </div>
+          <input 
+            type="text" 
+            value={otherCondition}
+            onChange={(e) => setOtherCondition(e.target.value)}
+            className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none text-sm" 
+            placeholder="Other issues (e.g. Back Pain, Knee Injury, Lactose Intolerant)" 
+          />
         </div>
 
         {/* Optional Daily Routine */}

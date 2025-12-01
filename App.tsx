@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
   const [lastDietData, setLastDietData] = useState<DietFormData | null>(null);
+  const [lastWorkoutData, setLastWorkoutData] = useState<WorkoutFormData | null>(null);
 
   // Handle Mobile Back Button
   useEffect(() => {
@@ -65,6 +66,7 @@ const App: React.FC = () => {
   };
 
   const handleWorkoutSubmit = async (data: WorkoutFormData) => {
+    setLastWorkoutData(data);
     setIsLoading(true);
     const plan = await generateWorkoutPlan(data);
     setGeneratedPlan(plan);
@@ -78,7 +80,24 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (isLoading) {
-      return <LoadingSpinner message={currentView === 'diet' ? 'Cooking up your diet plan...' : 'Forging your workout routine...'} />;
+      let userName = '';
+      let userGoal = '';
+
+      if (currentView === 'diet' && lastDietData) {
+        userName = lastDietData.name;
+        userGoal = lastDietData.goal;
+      } else if (currentView === 'workout' && lastWorkoutData) {
+        userName = lastWorkoutData.name;
+        userGoal = `${lastWorkoutData.focus} Focus`;
+      }
+
+      return (
+        <LoadingSpinner 
+          message={currentView === 'diet' ? 'Cooking up your diet plan...' : 'Forging your workout routine...'} 
+          userName={userName}
+          goal={userGoal}
+        />
+      );
     }
 
     if (generatedPlan) {

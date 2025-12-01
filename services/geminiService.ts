@@ -84,18 +84,24 @@ export const generateDietPlan = async (data: DietFormData, skippedMeals: string[
       ? `SKIP: ${skippedMeals.join(', ')}. Redistribute calories.` 
       : '';
 
+    const healthInstruction = data.healthConditions 
+      ? `HEALTH CONDITIONS: ${data.healthConditions}. CRITICAL: ANALYZE these issues. Adjust foods accordingly (e.g., Low GI for Diabetes, Iodine for Thyroid, Low Sodium for BP). State the adjustments made.` 
+      : 'No specific health issues.';
+
     const prompt = `
       ${SYSTEM_INSTRUCTION}
       TYPE: Diet Plan.
       USER: ${data.name}, ${data.gender}, Age ${data.age}, ${data.weight}kg, ${data.height}.
       GOAL: ${data.goal}. PREF: ${data.preference}.
+      ${healthInstruction}
       ROUTINE: ${routineDetails}
       ${skipInstruction}
 
       OUTPUT:
       1. BMR & TDEE (1 line).
-      2. Meal Table (Time, Meal, Items, Macros). Precise quantities.
-      3. Short Note on Hydration.
+      2. Health Analysis (If conditions exist, briefly explain changes).
+      3. Meal Table (Time, Meal, Items, Macros). Precise quantities.
+      4. Short Note on Hydration.
     `;
 
     const response = await ai.models.generateContent({
@@ -116,9 +122,14 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
 
     const isAdvanced = data.experience === ExperienceLevel.ADVANCED || data.experience === ExperienceLevel.INTERMEDIATE;
     
-    const splitInstruction = isAdvanced && data.split
+    // Split logic
+    const splitInstruction = (isAdvanced || data.split) && data.split
       ? `Split: ${data.split}.` 
       : `Suggest safe split.`;
+
+    const healthInstruction = data.healthConditions 
+      ? `HEALTH ISSUES: ${data.healthConditions}. CRITICAL: Adjust intensity and exercises to be SAFE (e.g., Avoid heavy overheads for shoulder pain, moderate cardio for BP).` 
+      : 'No specific health issues.';
 
     const prompt = `
       ${SYSTEM_INSTRUCTION}
@@ -126,13 +137,14 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
       USER: ${data.name}, ${data.gender}, ${data.experience}.
       AVAILABILITY: ${data.daysPerWeek} days, ${data.durationPerDay} mins.
       FOCUS: ${data.focus}.
+      ${healthInstruction}
       ${splitInstruction}
 
       OUTPUT:
       1. Weekly Schedule Table.
-      2. Daily Routine Tables (Exercise, Sets, Reps).
-      3. Very brief Warmup/Cooldown.
-      4. Keep it high intensity/volume if Advanced.
+      2. Safety Note (If health issues exist).
+      3. Daily Routine Tables (Exercise, Sets, Reps).
+      4. Very brief Warmup/Cooldown.
     `;
 
     const response = await ai.models.generateContent({

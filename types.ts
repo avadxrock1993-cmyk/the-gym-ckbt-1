@@ -45,6 +45,7 @@ export interface DietFormData {
   height: string;
   preference: DietPreference;
   goal: DietGoal;
+  healthConditions?: string; // New field for health issues
   wakeupTime?: string;
   breakfast?: string;
   lunch?: string;
@@ -61,6 +62,7 @@ export interface WorkoutFormData {
   focus: 'Cardio' | 'Strength' | 'Mix';
   experience: ExperienceLevel;
   split?: WorkoutSplit;
+  healthConditions?: string; // New field for health issues
 }
 
 export interface PlanResponse {

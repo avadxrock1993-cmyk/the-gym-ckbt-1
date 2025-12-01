@@ -14,7 +14,13 @@ const QUOTES = [
   "Light weight baby! 🏋️‍♂️"
 ];
 
-const LoadingSpinner: React.FC<{ message: string }> = ({ message }) => {
+interface LoadingSpinnerProps {
+  message: string;
+  userName?: string;
+  goal?: string;
+}
+
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ message, userName, goal }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
 
   useEffect(() => {
@@ -42,10 +48,18 @@ const LoadingSpinner: React.FC<{ message: string }> = ({ message }) => {
       </div>
 
       {/* Dynamic Status Message */}
-      <p className="text-xl font-bold text-gray-800 mb-6">{message}</p>
+      <p className="text-xl font-bold text-gray-800 mb-2">{message}</p>
+
+      {/* User Info Overlay */}
+      {(userName || goal) && (
+        <div className="mb-6 flex flex-col items-center">
+           {userName && <p className="text-lg text-gray-700">For: <span className="font-black text-red-600 text-xl">{userName}</span></p>}
+           {goal && <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">Target: {goal}</p>}
+        </div>
+      )}
 
       {/* Rotating Quotes */}
-      <div className="bg-red-50 p-6 rounded-xl border border-red-100 max-w-md w-full shadow-sm">
+      <div className="bg-red-50 p-6 rounded-xl border border-red-100 max-w-md w-full shadow-sm mt-2">
         <p className="text-red-600 font-bold italic text-lg transition-opacity duration-500 ease-in-out">
           "{QUOTES[quoteIndex]}"
         </p>
