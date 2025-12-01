@@ -14,6 +14,11 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
   const [skippedMeals, setSkippedMeals] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
   
+  // Feedback State
+  const [rating, setRating] = useState<number>(0);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  
   const handleDownload = () => {
     const element = document.getElementById('plan-content');
     if (!element) return;
@@ -71,6 +76,26 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
     if (onRegenerate) {
       onRegenerate(skippedMeals);
     }
+  };
+
+  const handleFeedbackSubmit = () => {
+    if (rating === 0) return;
+    
+    // Simulate logging to a service
+    console.log("Feedback Received:", {
+      planType: currentPlanType,
+      rating,
+      comment: feedbackText,
+      timestamp: new Date().toISOString()
+    });
+
+    setFeedbackSubmitted(true);
+    // Reset feedback text after submission for cleaner UI
+    setFeedbackText('');
+  };
+
+  const handleReportIssue = () => {
+    window.open("mailto:7000142415?subject=Issue%20Report%20-%20THE%20GYM%20CKBT%20App&body=Please%20describe%20the%20issue%20you%20encountered:", "_self");
   };
 
   const possibleMeals = ['Breakfast', 'Lunch', 'Evening Snack', 'Dinner', 'Post Workout'];
@@ -169,9 +194,65 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
           </p>
       </div>
 
+      {/* FEEDBACK SECTION - NEW */}
+      <div className="bg-white p-6 pt-0 border-t border-gray-100 no-print flex flex-col items-center max-w-lg mx-auto w-full">
+         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3 mt-4">Feedback & Support</h3>
+         
+         {!feedbackSubmitted ? (
+           <div className="w-full flex flex-col items-center gap-3">
+             <div className="flex gap-2 mb-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setRating(star)}
+                    className={`text-3xl transition-transform hover:scale-110 focus:outline-none ${rating >= star ? 'text-yellow-400' : 'text-gray-300'}`}
+                  >
+                    ★
+                  </button>
+                ))}
+             </div>
+             
+             <textarea
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                placeholder="Share your thoughts or issues..."
+                className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-red-500 resize-none bg-gray-50"
+                rows={2}
+             />
+             
+             <div className="flex gap-3 w-full">
+               <button
+                  onClick={handleFeedbackSubmit}
+                  disabled={rating === 0}
+                  className={`flex-1 py-2 rounded-lg font-bold text-sm transition-colors ${rating > 0 ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+               >
+                  Submit Feedback
+               </button>
+               <button
+                  onClick={handleReportIssue}
+                  className="flex-1 py-2 rounded-lg font-bold text-sm bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
+               >
+                  Report Issue
+               </button>
+             </div>
+           </div>
+         ) : (
+           <div className="bg-green-50 text-green-700 px-6 py-4 rounded-lg text-center w-full animate-fadeIn border border-green-200">
+             <p className="font-bold text-lg">Thank You! 🎉</p>
+             <p className="text-sm">Your feedback helps us improve.</p>
+             <button 
+               onClick={() => { setFeedbackSubmitted(false); setRating(0); }}
+               className="mt-2 text-xs font-bold underline hover:text-green-800"
+             >
+               Send more feedback
+             </button>
+           </div>
+         )}
+      </div>
+
       {/* Modify/Refine Section (Only for Diet Plans usually) - Hidden in Print */}
       {onRegenerate && (
-        <div className="bg-gray-50 p-6 border-t-2 border-red-100 no-print">
+        <div className="bg-gray-50 p-6 border-t-2 border-red-100 no-print mt-4">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Refine Your Plan</h3>
           <p className="text-sm text-gray-600 mb-4">Want to skip a meal? Select below and we will regenerate the plan by redistributing the calories.</p>
           
