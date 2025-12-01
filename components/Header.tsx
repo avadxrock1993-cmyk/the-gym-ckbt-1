@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 
 interface HeaderProps {
@@ -27,13 +28,16 @@ const Header: React.FC<HeaderProps> = ({ onHomeClick }) => {
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b-4 border-red-600 shadow-md">
-      <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-        <h1 
+      <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div 
           onClick={onHomeClick}
-          className="text-2xl md:text-3xl font-extrabold text-red-600 tracking-tighter cursor-pointer hover:opacity-80 transition-opacity"
+          className="cursor-pointer hover:opacity-80 transition-opacity"
         >
-          THE GYM CKBT
-        </h1>
+          <h1 className="text-2xl md:text-3xl font-black text-red-600 tracking-tighter uppercase italic drop-shadow-sm">
+            THE GYM <span className="text-gray-900">CKBT</span>
+          </h1>
+        </div>
+
         <nav className="flex gap-4 items-center">
           {deferredPrompt && (
             <button 

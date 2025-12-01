@@ -1,26 +1,50 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import DietForm from './components/DietForm';
 import WorkoutForm from './components/WorkoutForm';
 import PlanDisplay from './components/PlanDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
-import { DietFormData, WorkoutFormData, PlanType } from './types';
+import { DietFormData, WorkoutFormData } from './types';
 import { generateDietPlan, generateWorkoutPlan } from './services/geminiService';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
-  
-  // Store form data to allow regeneration
   const [lastDietData, setLastDietData] = useState<DietFormData | null>(null);
 
-  const reset = () => {
-    setCurrentView('home');
-    setGeneratedPlan(null);
-    setIsLoading(false);
-    setLastDietData(null);
+  // Handle Mobile Back Button
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.view) {
+        setCurrentView(event.state.view);
+        if (event.state.view === 'home') {
+          setGeneratedPlan(null);
+        }
+      } else {
+        // Fallback for initial load or unknown state
+        setCurrentView('home');
+        setGeneratedPlan(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    // Initial Replace
+    window.history.replaceState({ view: 'home' }, '');
+
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Navigation Helper
+  const navigate = (view: 'home' | 'diet' | 'workout') => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setCurrentView(view);
+    if (view === 'home') {
+      setGeneratedPlan(null);
+    }
+    window.history.pushState({ view }, '');
   };
 
   const handleDietSubmit = async (data: DietFormData) => {
@@ -33,7 +57,7 @@ const App: React.FC = () => {
 
   const handleDietRegenerate = async (skippedMeals: string[]) => {
     if (!lastDietData) return;
-    setGeneratedPlan(null); // Clear current view
+    setGeneratedPlan(null);
     setIsLoading(true);
     const plan = await generateDietPlan(lastDietData, skippedMeals);
     setGeneratedPlan(plan);
@@ -49,10 +73,9 @@ const App: React.FC = () => {
 
   const handleCrossNavigate = (target: 'diet' | 'workout') => {
     setGeneratedPlan(null);
-    setCurrentView(target);
+    navigate(target);
   };
 
-  // Render Logic
   const renderContent = () => {
     if (isLoading) {
       return <LoadingSpinner message={currentView === 'diet' ? 'Cooking up your diet plan...' : 'Forging your workout routine...'} />;
@@ -62,7 +85,7 @@ const App: React.FC = () => {
       return (
         <PlanDisplay 
           content={generatedPlan} 
-          onReset={reset} 
+          onReset={() => navigate('home')}
           title={currentView === 'diet' ? 'Your Personalized Diet Plan' : 'Your Personalized Workout Plan'}
           onRegenerate={currentView === 'diet' ? handleDietRegenerate : undefined}
           currentPlanType={currentView === 'diet' ? 'diet' : 'workout'}
@@ -72,21 +95,21 @@ const App: React.FC = () => {
     }
 
     if (currentView === 'diet') {
-      return <DietForm onSubmit={handleDietSubmit} onCancel={reset} />;
+      return <DietForm onSubmit={handleDietSubmit} onCancel={() => navigate('home')} />;
     }
 
     if (currentView === 'workout') {
-      return <WorkoutForm onSubmit={handleWorkoutSubmit} onCancel={reset} />;
+      return <WorkoutForm onSubmit={handleWorkoutSubmit} onCancel={() => navigate('home')} />;
     }
 
     // Home View
     return (
-      <div className="flex flex-col items-center justify-center space-y-8 py-10">
-        <div className="text-center max-w-2xl px-6">
-          <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
+      <div className="flex flex-col items-center justify-center space-y-8 py-4">
+        <div className="text-center max-w-2xl px-6 flex flex-col items-center">
+          <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 mb-2 tracking-tight">
             TRANSFORM YOUR BODY
           </h2>
-          <p className="text-xl text-gray-600 mb-8">
+          <p className="text-lg text-gray-600 mb-8 max-w-lg">
             Get AI-powered personalized plans tailored to your specific goals and lifestyle.
           </p>
         </div>
@@ -94,7 +117,7 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl px-6">
           {/* Diet Card */}
           <button 
-            onClick={() => setCurrentView('diet')}
+            onClick={() => navigate('diet')}
             className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-48 justify-center items-center gap-4"
           >
             <div>
@@ -111,7 +134,7 @@ const App: React.FC = () => {
 
           {/* Workout Card */}
           <button 
-            onClick={() => setCurrentView('workout')}
+            onClick={() => navigate('workout')}
             className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-48 justify-center items-center gap-4"
           >
             <div>
@@ -132,7 +155,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header onHomeClick={reset} />
+      <Header onHomeClick={() => navigate('home')} />
       <main className="flex-grow flex flex-col items-center p-4">
         <div className="w-full max-w-4xl mt-6">
           {renderContent()}

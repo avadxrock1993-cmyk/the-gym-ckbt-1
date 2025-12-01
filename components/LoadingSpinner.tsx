@@ -28,18 +28,17 @@ const LoadingSpinner: React.FC<{ message: string }> = ({ message }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center animate-fadeIn">
       
-      {/* Brand Name */}
-      <h1 className="text-3xl md:text-5xl font-extrabold text-red-700 mb-8 tracking-tighter uppercase drop-shadow-sm">
-        THE GYM CKBT
-      </h1>
+      {/* Brand Name with Pulse Animation */}
+      <div className="relative mb-8">
+         <h2 className="text-4xl md:text-5xl font-black text-red-600 tracking-tighter uppercase italic relative z-10">
+            THE GYM <span className="text-gray-900">CKBT</span>
+         </h2>
+      </div>
 
       {/* Spinner */}
-      <div className="relative w-24 h-24 mb-10">
+      <div className="relative w-16 h-16 mb-8">
         <div className="absolute top-0 left-0 w-full h-full border-4 border-gray-200 rounded-full"></div>
         <div className="absolute top-0 left-0 w-full h-full border-4 border-red-600 rounded-full animate-spin border-t-transparent"></div>
-        <div className="absolute inset-0 flex items-center justify-center">
-             <span className="text-3xl">🏋️</span>
-        </div>
       </div>
 
       {/* Dynamic Status Message */}

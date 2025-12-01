@@ -25,10 +25,9 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
 
     setIsDownloading(true);
 
-    // Scroll to top to prevent canvas cropping issues on mobile
     window.scrollTo(0, 0);
 
-    // Use html2pdf if available (loaded via CDN in index.html)
+    // Use html2pdf if available
     // @ts-ignore
     if (typeof window.html2pdf !== 'undefined') {
        const opt = {
@@ -39,8 +38,8 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
           scale: 2, 
           useCORS: true, 
           letterRendering: true,
-          scrollY: 0, // Critical for mobile
-          windowWidth: document.documentElement.offsetWidth // Ensure captures full width
+          scrollY: 0, 
+          windowWidth: document.documentElement.offsetWidth 
         },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
@@ -54,7 +53,6 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
         alert("PDF generation failed on this device. Try taking a screenshot.");
       });
     } else {
-      // Fallback to print
       window.print();
       setIsDownloading(false);
     }
@@ -81,7 +79,6 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
   const handleFeedbackSubmit = () => {
     if (rating === 0) return;
     
-    // Simulate logging to a service
     console.log("Feedback Received:", {
       planType: currentPlanType,
       rating,
@@ -90,7 +87,6 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
     });
 
     setFeedbackSubmitted(true);
-    // Reset feedback text after submission for cleaner UI
     setFeedbackText('');
   };
 
@@ -119,8 +115,10 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
       <div className="p-4 md:p-12 bg-white min-h-[500px]" id="plan-content">
         
         {/* Company Header - Always visible in the plan view/pdf */}
-        <div className="text-center border-b-4 border-red-600 pb-6 mb-8">
-          <h1 className="text-3xl md:text-4xl font-extrabold text-red-700 uppercase tracking-tighter">THE GYM CKBT</h1>
+        <div className="text-center border-b-4 border-red-600 pb-6 mb-8 flex flex-col items-center">
+          <h1 className="text-3xl md:text-4xl font-black text-red-600 uppercase tracking-tighter mb-2">
+            THE GYM <span className="text-gray-900">CKBT</span>
+          </h1>
           <div className="mt-2 text-gray-600 font-medium space-y-1 text-sm md:text-base flex flex-col items-center">
             <a 
               href="https://www.google.com/maps/search/?api=1&query=2442+WWH,+Unnamed+Road,+Chakarbhatha,+Chhattisgarh+495220"
@@ -135,7 +133,7 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
           </div>
         </div>
 
-        {/* Render the HTML directly - Gemini generated HTML with Tailwind classes */}
+        {/* Render the HTML directly */}
         <div 
           className="prose prose-red max-w-none text-gray-800"
           dangerouslySetInnerHTML={{ __html: content }}
@@ -147,7 +145,7 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
         </div>
       </div>
 
-      {/* CROSS NAVIGATION BUTTON (Placed as requested) */}
+      {/* CROSS NAVIGATION BUTTON */}
       <div className="bg-red-50 p-6 flex flex-col items-center gap-3 no-print border-t border-gray-100">
          <p className="text-red-800 font-bold text-sm uppercase tracking-wide">
            {currentPlanType === 'diet' ? 'Complete your routine:' : 'Optimize your results:'}
@@ -161,7 +159,7 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
          </button>
       </div>
 
-      {/* ACTION BUTTONS: Download PDF & Share (Below Content) */}
+      {/* ACTION BUTTONS */}
       <div className="bg-white p-6 flex flex-col items-center gap-4 no-print">
           <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
             <button 
@@ -194,7 +192,7 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
           </p>
       </div>
 
-      {/* FEEDBACK SECTION - NEW */}
+      {/* FEEDBACK SECTION */}
       <div className="bg-white p-6 pt-0 border-t border-gray-100 no-print flex flex-col items-center max-w-lg mx-auto w-full">
          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3 mt-4">Feedback & Support</h3>
          
@@ -250,7 +248,7 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
          )}
       </div>
 
-      {/* Modify/Refine Section (Only for Diet Plans usually) - Hidden in Print */}
+      {/* Modify/Refine Section */}
       {onRegenerate && (
         <div className="bg-gray-50 p-6 border-t-2 border-red-100 no-print mt-4">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Refine Your Plan</h3>
@@ -288,7 +286,7 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
         </div>
       )}
 
-      {/* Footer Actions - Hidden in Print */}
+      {/* Footer Actions */}
       <div className="p-6 bg-gray-50 border-t flex justify-center no-print rounded-b-lg">
          <button 
           onClick={onReset}
