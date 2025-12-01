@@ -59,7 +59,7 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
   };
 
   const handleWhatsAppShare = () => {
-    const message = `Hey! I just created a personalized diet/workout plan using THE GYM CKBT App.\n\nIt's amazing! You should try it too.`;
+    const message = `Hey! I just created a personalized diet/workout plan using THE GYM CKBT App.\n\nIt's amazing! You should try it too.\n\nCheck it out here: https://thegymckbt1.vercel.app/`;
     const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
