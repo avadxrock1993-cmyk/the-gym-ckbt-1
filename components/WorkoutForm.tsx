@@ -19,7 +19,10 @@ const WorkoutForm: React.FC<WorkoutFormProps> = ({ onSubmit, onCancel }) => {
     durationPerDay: '60',
     focus: 'Mix',
     experience: ExperienceLevel.BEGINNER,
-    split: WorkoutSplit.STANDARD
+    split: WorkoutSplit.STANDARD,
+    currentSquat: '',
+    currentBench: '',
+    currentDeadlift: ''
   });
 
   // Health Conditions State
@@ -109,14 +112,67 @@ const WorkoutForm: React.FC<WorkoutFormProps> = ({ onSubmit, onCancel }) => {
           </div>
         </div>
 
-        {/* Split Selection (Only if Advanced or Intermediate with Strength Focus) */}
-        {(formData.experience === ExperienceLevel.ADVANCED || (formData.experience === ExperienceLevel.INTERMEDIATE && formData.focus !== 'Cardio')) && (
+        {/* Focus */}
+        <div>
+          <label className="block text-lg font-bold text-gray-800 mb-2">Primary Focus</label>
+          <select 
+            name="focus" value={formData.focus} onChange={handleChange}
+            className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none bg-white text-lg font-semibold"
+          >
+            <option value="Mix">Mix (Cardio + Strength)</option>
+            <option value="Strength">Bodybuilding (Muscle Growth)</option>
+            <option value="Powerlifting">Powerlifting (Strength SBD)</option>
+            <option value="Cardio">Cardio / Endurance</option>
+          </select>
+        </div>
+
+        {/* Powerlifting Specific Inputs */}
+        {formData.focus === 'Powerlifting' && (
+          <div className="bg-gray-800 text-white p-6 rounded-xl border-2 border-red-600 animate-fadeIn shadow-xl">
+             <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">🏋️‍♂️</span>
+                <h3 className="text-xl font-bold uppercase tracking-wider text-red-500">Current Stats (SBD)</h3>
+             </div>
+             <p className="text-gray-300 text-sm mb-4">Enter your current max or working set weight (in kg) so we can build a progression plan.</p>
+             
+             <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Squat</label>
+                  <input 
+                    type="number" name="currentSquat" placeholder="kg"
+                    value={formData.currentSquat} onChange={handleChange}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg focus:border-red-500 focus:outline-none text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Bench</label>
+                  <input 
+                    type="number" name="currentBench" placeholder="kg"
+                    value={formData.currentBench} onChange={handleChange}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg focus:border-red-500 focus:outline-none text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Deadlift</label>
+                  <input 
+                    type="number" name="currentDeadlift" placeholder="kg"
+                    value={formData.currentDeadlift} onChange={handleChange}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg focus:border-red-500 focus:outline-none text-white font-bold"
+                  />
+                </div>
+             </div>
+          </div>
+        )}
+
+        {/* Split Selection (Only if Advanced or Intermediate with Strength Focus, NOT Powerlifting which has its own structure) */}
+        {formData.focus !== 'Powerlifting' && (formData.experience === ExperienceLevel.ADVANCED || (formData.experience === ExperienceLevel.INTERMEDIATE && formData.focus !== 'Cardio')) && (
           <div className="bg-red-50 p-4 rounded-lg border border-red-100 animate-fadeIn">
             <label className="block text-lg font-bold text-red-800 mb-2">Choose Your Workout Split</label>
             <select 
               name="split" value={formData.split} onChange={handleChange}
               className="w-full p-3 border-2 border-red-200 rounded-lg focus:border-red-500 focus:outline-none bg-white"
             >
+              <option value={WorkoutSplit.STANDARD}>Standard Mix</option>
               <option value={WorkoutSplit.DOUBLE_MUSCLE}>Double Muscle (2 Body Parts)</option>
               <option value={WorkoutSplit.PPL}>Push Pull Legs (PPL)</option>
               <option value={WorkoutSplit.BRO_SPLIT}>Bro Split (1 Body Part)</option>
@@ -131,7 +187,7 @@ const WorkoutForm: React.FC<WorkoutFormProps> = ({ onSubmit, onCancel }) => {
               <label className="block text-sm font-bold text-gray-700 mb-2">Days per Week</label>
               <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border">
                 <input 
-                  type="range" name="daysPerWeek" min="1" max="7" step="1"
+                  type="range" name="daysPerWeek" min="3" max="7" step="1"
                   value={formData.daysPerWeek} onChange={handleChange}
                   className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-red-600"
                 />
@@ -179,19 +235,6 @@ const WorkoutForm: React.FC<WorkoutFormProps> = ({ onSubmit, onCancel }) => {
             className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none text-sm" 
             placeholder="Other issues (e.g. Shoulder Pain, Hernia)" 
           />
-        </div>
-
-        {/* Focus */}
-        <div>
-          <label className="block text-lg font-bold text-gray-800 mb-2">Primary Focus</label>
-          <select 
-            name="focus" value={formData.focus} onChange={handleChange}
-            className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none bg-white text-lg"
-          >
-            <option value="Mix">Mix (Cardio + Strength)</option>
-            <option value="Strength">Strength Training / Muscle Building</option>
-            <option value="Cardio">Cardio / Endurance</option>
-          </select>
         </div>
 
         <div className="flex gap-4 pt-4">

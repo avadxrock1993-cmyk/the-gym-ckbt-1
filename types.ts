@@ -59,10 +59,14 @@ export interface WorkoutFormData {
   gender: Gender;
   daysPerWeek: string;
   durationPerDay: string;
-  focus: 'Cardio' | 'Strength' | 'Mix';
+  focus: 'Cardio' | 'Strength' | 'Mix' | 'Powerlifting';
   experience: ExperienceLevel;
   split?: WorkoutSplit;
   healthConditions?: string; // New field for health issues
+  // Powerlifting Specifics
+  currentSquat?: string;
+  currentBench?: string;
+  currentDeadlift?: string;
 }
 
 export interface PlanResponse {

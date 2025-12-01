@@ -122,10 +122,24 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
 
     const isAdvanced = data.experience === ExperienceLevel.ADVANCED || data.experience === ExperienceLevel.INTERMEDIATE;
     
-    // Split logic
-    const splitInstruction = (isAdvanced || data.split) && data.split
-      ? `Split: ${data.split}.` 
-      : `Suggest safe split.`;
+    let specialInstruction = '';
+    
+    // Handle Powerlifting specific instructions
+    if (data.focus === 'Powerlifting') {
+       const lifts = `Squat: ${data.currentSquat || 'N/A'}kg, Bench: ${data.currentBench || 'N/A'}kg, Deadlift: ${data.currentDeadlift || 'N/A'}kg`;
+       specialInstruction = `
+         FOCUS: POWERLIFTING (Strength).
+         CURRENT LIFTS: ${lifts}.
+         GOAL: Increase 1RM on SBD (Squat, Bench, Deadlift).
+         STRATEGY: Use a strength progression (e.g. 5x5, 5/3/1, or percentage based).
+         Focus heavily on compound movements with lower reps and higher rest.
+       `;
+    } else {
+       // Regular Bodybuilding/Fitness instructions
+       specialInstruction = (isAdvanced || data.split) && data.split
+        ? `Split: ${data.split}.` 
+        : `Suggest safe split.`;
+    }
 
     const healthInstruction = data.healthConditions 
       ? `HEALTH ISSUES: ${data.healthConditions}. CRITICAL: Adjust intensity and exercises to be SAFE (e.g., Avoid heavy overheads for shoulder pain, moderate cardio for BP).` 
@@ -137,13 +151,14 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
       USER: ${data.name}, ${data.gender}, ${data.experience}.
       AVAILABILITY: ${data.daysPerWeek} days, ${data.durationPerDay} mins.
       FOCUS: ${data.focus}.
+      ${specialInstruction}
       ${healthInstruction}
-      ${splitInstruction}
 
       OUTPUT:
-      1. Weekly Schedule Table.
+      1. Weekly Schedule Table (Day, Muscle Group / Lift).
       2. Safety Note (If health issues exist).
-      3. Daily Routine Tables (Exercise, Sets, Reps).
+      3. Daily Routine Tables (Exercise, Sets, Reps). 
+         ${data.focus === 'Powerlifting' ? '*For Powerlifting, include % of 1RM or RPE if possible.*' : ''}
       4. Very brief Warmup/Cooldown.
     `;
 
