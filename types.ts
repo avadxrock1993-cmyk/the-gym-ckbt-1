@@ -45,7 +45,7 @@ export interface DietFormData {
   height: string;
   preference: DietPreference;
   goal: DietGoal;
-  weightChangeTarget?: string; // New field for target weight change amount
+  weightChangeTarget?: string; 
   healthConditions?: string;
   excludedFoods?: string;
   wakeupTime?: string;
@@ -66,7 +66,6 @@ export interface WorkoutFormData {
   experience: ExperienceLevel;
   split?: WorkoutSplit;
   healthConditions?: string;
-  // Powerlifting Specifics
   currentSquat?: string;
   currentBench?: string;
   currentDeadlift?: string;
@@ -74,4 +73,37 @@ export interface WorkoutFormData {
 
 export interface PlanResponse {
   markdown: string;
+}
+
+// --- TRACKER SPECIFIC TYPES ---
+
+export interface TrackerSetLog {
+  setNumber: number;
+  weight: number;
+  reps: number;
+  suggestion?: string; // e.g. "Increase weight by 2.5kg"
+}
+
+export interface TrackerExercise {
+  name: string;
+  targetSets: number;
+  targetReps: string; // "8-12"
+  restTime: string; // "60s"
+  logs: TrackerSetLog[];
+}
+
+export interface TrackerSession {
+  targetMuscle: string;
+  warmup: string[]; // List of warmup activities
+  exercises: TrackerExercise[];
+  startTime: string;
+  endTime?: string;
+}
+
+export interface SavedPlan {
+  id: string;
+  type: 'diet' | 'workout' | 'tracker';
+  date: string;
+  title: string;
+  content: string | TrackerSession; // HTML for plans, JSON for tracker
 }

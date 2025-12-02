@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { DietFormData, WorkoutFormData, ExperienceLevel } from "../types";
+import { DietFormData, WorkoutFormData, ExperienceLevel, TrackerSession } from "../types";
 
 const MODEL_NAME = 'gemini-2.5-flash';
 
@@ -39,12 +39,13 @@ const getClient = () => {
 };
 
 // Common error handler
-const handleApiError = (error: any, type: 'diet' | 'workout') => {
+const handleApiError = (error: any, type: 'diet' | 'workout' | 'tracker') => {
   console.error(`Error generating ${type} plan:`, error);
   
   const errorMessage = error.toString().toLowerCase();
   
   if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('resource_exhausted')) {
+    if (type === 'tracker') throw new Error("Daily AI Limit Reached. Try again later.");
     return `<div class="p-6 bg-red-50 border-l-4 border-red-600 text-red-700">
       <h3 class="font-bold text-lg mb-2">⚠️ Daily Limit Reached</h3>
       <p>The free Google AI quota for this key has been exhausted for today.</p>
@@ -53,16 +54,20 @@ const handleApiError = (error: any, type: 'diet' | 'workout') => {
   }
 
   if (errorMessage.includes('key') || errorMessage.includes('403')) {
+    if (type === 'tracker') throw new Error("Invalid API Key.");
     return `<div class="p-6 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800">
       <h3 class="font-bold text-lg mb-2">🔑 Invalid API Key</h3>
       <p>The API Key configured in the app is incorrect or has expired.</p>
     </div>`;
   }
 
+  const msg = error.message || "Unknown error";
+  if (type === 'tracker') throw new Error(msg);
+
   return `<div class="p-6 bg-gray-50 border-l-4 border-gray-500 text-gray-700">
     <h3 class="font-bold text-lg mb-2">😓 Connection Error</h3>
     <p>We couldn't talk to the AI. Please check your internet connection.</p>
-    <p class="text-xs mt-2 text-gray-500">Details: ${error.message || "Unknown error"}</p>
+    <p class="text-xs mt-2 text-gray-500">Details: ${msg}</p>
   </div>`;
 };
 
@@ -183,3 +188,45 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
     return handleApiError(error, 'workout');
   }
 };
+
+// --- NEW FUNCTION FOR TRACKER ---
+export const generateWorkoutSession = async (targetMuscle: string): Promise<TrackerSession> => {
+  try {
+    const ai = getClient();
+    
+    const prompt = `
+      Generate a workout session for: ${targetMuscle}.
+      Return purely valid JSON (no markdown).
+      Structure:
+      {
+        "targetMuscle": "${targetMuscle}",
+        "warmup": ["Activity 1", "Activity 2"],
+        "exercises": [
+           { "name": "Exercise Name", "targetSets": 3, "targetReps": "10-12", "restTime": "60s" }
+        ]
+      }
+      Provide 4-5 effective exercises.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
+
+    const text = response.text || "{}";
+    // Ensure we parse pure JSON even if the model adds markdown ticks
+    const cleanJson = text.replace(/```json|```/g, '');
+    const data = JSON.parse(cleanJson);
+    
+    // Add empty logs array to each exercise for the frontend to use
+    data.exercises = data.exercises.map((ex: any) => ({ ...ex, logs: [] }));
+    data.startTime = new Date().toISOString();
+    
+    return data as TrackerSession;
+
+  } catch (error: any) {
+    handleApiError(error, 'tracker'); // Log error
+    throw error; // Re-throw to UI
+  }
+}

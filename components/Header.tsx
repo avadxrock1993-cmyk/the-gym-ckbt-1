@@ -3,9 +3,10 @@ import React, { useEffect, useState } from 'react';
 
 interface HeaderProps {
   onHomeClick: () => void;
+  onTrackerClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onHomeClick }) => {
+const Header: React.FC<HeaderProps> = ({ onHomeClick, onTrackerClick }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
@@ -45,6 +46,14 @@ const Header: React.FC<HeaderProps> = ({ onHomeClick }) => {
               className="hidden md:block bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide hover:bg-red-200 transition-colors"
             >
               📲 Install App
+            </button>
+          )}
+          {onTrackerClick && (
+            <button 
+              onClick={onTrackerClick}
+              className="text-sm font-semibold text-gray-600 hover:text-red-600 uppercase tracking-wide hidden sm:block"
+            >
+              AI Tracker
             </button>
           )}
           <button 

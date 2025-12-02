@@ -5,15 +5,20 @@ import DietForm from './components/DietForm';
 import WorkoutForm from './components/WorkoutForm';
 import PlanDisplay from './components/PlanDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
-import { DietFormData, WorkoutFormData } from './types';
-import { generateDietPlan, generateWorkoutPlan } from './services/geminiService';
+import TrackerSetup from './components/TrackerSetup';
+import ActiveSession from './components/ActiveSession';
+import { DietFormData, WorkoutFormData, TrackerSession } from './types';
+import { generateDietPlan, generateWorkoutPlan, generateWorkoutSession } from './services/geminiService';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout' | 'tracker-setup' | 'tracker-active'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
   const [lastDietData, setLastDietData] = useState<DietFormData | null>(null);
   const [lastWorkoutData, setLastWorkoutData] = useState<WorkoutFormData | null>(null);
+  
+  // Tracker State
+  const [activeSession, setActiveSession] = useState<TrackerSession | null>(null);
 
   // Handle Mobile Back Button
   useEffect(() => {
@@ -22,28 +27,26 @@ const App: React.FC = () => {
         setCurrentView(event.state.view);
         if (event.state.view === 'home') {
           setGeneratedPlan(null);
+          setActiveSession(null);
         }
       } else {
-        // Fallback for initial load or unknown state
         setCurrentView('home');
         setGeneratedPlan(null);
+        setActiveSession(null);
       }
     };
 
     window.addEventListener('popstate', handlePopState);
-    
-    // Initial Replace
     window.history.replaceState({ view: 'home' }, '');
-
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Navigation Helper
-  const navigate = (view: 'home' | 'diet' | 'workout') => {
+  const navigate = (view: typeof currentView) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setCurrentView(view);
     if (view === 'home') {
       setGeneratedPlan(null);
+      setActiveSession(null);
     }
     window.history.pushState({ view }, '');
   };
@@ -73,6 +76,36 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
+  // Tracker Handlers
+  const handleStartTracker = async (muscle: string) => {
+    setIsLoading(true);
+    try {
+      const session = await generateWorkoutSession(muscle);
+      setActiveSession(session);
+      navigate('tracker-active');
+    } catch (e) {
+      alert("Failed to create session. Please check connection.");
+    }
+    setIsLoading(false);
+  };
+
+  const handleFinishSession = (session: TrackerSession) => {
+    // Here you could save to local storage history
+    const historyItem = {
+      id: Date.now().toString(),
+      type: 'tracker',
+      date: new Date().toISOString(),
+      title: `${session.targetMuscle} Workout`,
+      content: session
+    };
+    const existing = localStorage.getItem('gym_history');
+    const history = existing ? JSON.parse(existing) : [];
+    localStorage.setItem('gym_history', JSON.stringify([historyItem, ...history]));
+    
+    alert("Workout Saved to History! 💪");
+    navigate('home');
+  };
+
   const handleCrossNavigate = (target: 'diet' | 'workout') => {
     setGeneratedPlan(null);
     navigate(target);
@@ -89,11 +122,13 @@ const App: React.FC = () => {
       } else if (currentView === 'workout' && lastWorkoutData) {
         userName = lastWorkoutData.name;
         userGoal = `${lastWorkoutData.focus} Focus`;
+      } else if (currentView === 'tracker-setup') {
+        userGoal = "Preparing AI Session...";
       }
 
       return (
         <LoadingSpinner 
-          message={currentView === 'diet' ? 'Cooking up your diet plan...' : 'Forging your workout routine...'} 
+          message={currentView === 'tracker-setup' ? 'AI is creating your live session...' : (currentView === 'diet' ? 'Cooking up your diet plan...' : 'Forging your workout routine...')} 
           userName={userName}
           goal={userGoal}
         />
@@ -113,13 +148,11 @@ const App: React.FC = () => {
       );
     }
 
-    if (currentView === 'diet') {
-      return <DietForm onSubmit={handleDietSubmit} onCancel={() => navigate('home')} />;
-    }
-
-    if (currentView === 'workout') {
-      return <WorkoutForm onSubmit={handleWorkoutSubmit} onCancel={() => navigate('home')} />;
-    }
+    if (currentView === 'diet') return <DietForm onSubmit={handleDietSubmit} onCancel={() => navigate('home')} />;
+    if (currentView === 'workout') return <WorkoutForm onSubmit={handleWorkoutSubmit} onCancel={() => navigate('home')} />;
+    
+    if (currentView === 'tracker-setup') return <TrackerSetup onStartSession={handleStartTracker} onCancel={() => navigate('home')} />;
+    if (currentView === 'tracker-active' && activeSession) return <ActiveSession session={activeSession} onFinish={handleFinishSession} onCancel={() => navigate('home')} />;
 
     // Home View
     return (
@@ -129,42 +162,54 @@ const App: React.FC = () => {
             TRANSFORM YOUR BODY
           </h2>
           <p className="text-lg text-gray-600 mb-8 max-w-lg">
-            Get AI-powered personalized plans tailored to your specific goals and lifestyle.
+            Get AI-powered personalized plans and track your daily workouts live.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl px-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl px-6">
           {/* Diet Card */}
           <button 
             onClick={() => navigate('diet')}
-            className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-48 justify-center items-center gap-4"
+            className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
           >
             <div>
-              <h3 className="text-3xl font-extrabold text-gray-900 group-hover:text-red-600 transition-colors text-center">DIET PLAN</h3>
-              <p className="mt-2 text-gray-500 font-medium text-center">Nutrition tailored to your taste.</p>
+              <h3 className="text-2xl font-extrabold text-gray-900 group-hover:text-red-600 transition-colors text-center">DIET PLAN</h3>
+              <p className="mt-2 text-gray-500 font-medium text-center text-sm">Nutrition tailored to your taste.</p>
             </div>
-            <div className="flex items-center text-red-600 font-bold">
+            <div className="flex items-center text-red-600 font-bold bg-red-50 px-4 py-2 rounded-full">
               <span>Create Plan</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2 group-hover:translate-x-2 transition-transform" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
             </div>
           </button>
 
           {/* Workout Card */}
           <button 
             onClick={() => navigate('workout')}
-            className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-48 justify-center items-center gap-4"
+            className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
           >
             <div>
-              <h3 className="text-3xl font-extrabold text-gray-900 group-hover:text-red-600 transition-colors text-center">WORKOUT PLAN</h3>
-              <p className="mt-2 text-gray-500 font-medium text-center">Exercises designed for your goals.</p>
+              <h3 className="text-2xl font-extrabold text-gray-900 group-hover:text-red-600 transition-colors text-center">WORKOUT PLAN</h3>
+              <p className="mt-2 text-gray-500 font-medium text-center text-sm">Routine designed for your goals.</p>
             </div>
-            <div className="flex items-center text-red-600 font-bold">
+            <div className="flex items-center text-red-600 font-bold bg-red-50 px-4 py-2 rounded-full">
               <span>Create Plan</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2 group-hover:translate-x-2 transition-transform" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+            </div>
+          </button>
+
+          {/* AI Tracker Card - NEW */}
+          <button 
+            onClick={() => navigate('tracker-setup')}
+            className="group relative bg-gray-900 border-2 border-gray-800 hover:border-red-500 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
+          >
+            <div className="absolute top-3 right-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">NEW</div>
+            <div>
+              <h3 className="text-2xl font-extrabold text-white group-hover:text-red-500 transition-colors text-center">AI TRACKER</h3>
+              <p className="mt-2 text-gray-400 font-medium text-center text-sm">Interactive Live Session.</p>
+            </div>
+            <div className="flex items-center text-gray-900 font-bold bg-white px-4 py-2 rounded-full group-hover:bg-red-600 group-hover:text-white transition-colors">
+              <span>Start Workout</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
             </div>
           </button>
         </div>
@@ -174,9 +219,9 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header onHomeClick={() => navigate('home')} />
+      <Header onHomeClick={() => navigate('home')} onTrackerClick={() => navigate('tracker-setup')} />
       <main className="flex-grow flex flex-col items-center p-4">
-        <div className="w-full max-w-4xl mt-6">
+        <div className="w-full max-w-5xl mt-6">
           {renderContent()}
         </div>
       </main>
