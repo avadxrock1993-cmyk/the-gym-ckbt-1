@@ -4,9 +4,10 @@ import React, { useEffect, useState } from 'react';
 interface HeaderProps {
   onHomeClick: () => void;
   onTrackerClick?: () => void;
+  onHistoryClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onHomeClick, onTrackerClick }) => {
+const Header: React.FC<HeaderProps> = ({ onHomeClick, onTrackerClick, onHistoryClick }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
@@ -53,7 +54,15 @@ const Header: React.FC<HeaderProps> = ({ onHomeClick, onTrackerClick }) => {
               onClick={onTrackerClick}
               className="text-sm font-semibold text-gray-600 hover:text-red-600 uppercase tracking-wide hidden sm:block"
             >
-              AI Tracker
+              Tracker
+            </button>
+          )}
+          {onHistoryClick && (
+            <button 
+              onClick={onHistoryClick}
+              className="text-sm font-semibold text-gray-600 hover:text-red-600 uppercase tracking-wide"
+            >
+              History
             </button>
           )}
           <button 

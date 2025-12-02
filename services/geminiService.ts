@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { DietFormData, WorkoutFormData, ExperienceLevel, TrackerSession } from "../types";
+import { DietFormData, WorkoutFormData, ExperienceLevel, TrackerSession, TrackerExercise } from "../types";
 
 const MODEL_NAME = 'gemini-2.5-flash';
 
@@ -190,7 +190,7 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
 };
 
 // --- NEW FUNCTION FOR TRACKER ---
-export const generateWorkoutSession = async (targetMuscle: string): Promise<TrackerSession> => {
+export const generateWorkoutSession = async (targetMuscle: string, exerciseCount: number): Promise<TrackerSession> => {
   try {
     const ai = getClient();
     
@@ -205,7 +205,7 @@ export const generateWorkoutSession = async (targetMuscle: string): Promise<Trac
            { "name": "Exercise Name", "targetSets": 3, "targetReps": "10-12", "restTime": "60s" }
         ]
       }
-      Provide 4-5 effective exercises.
+      Provide EXACTLY ${exerciseCount} effective exercises.
     `;
 
     const response = await ai.models.generateContent({
@@ -215,7 +215,6 @@ export const generateWorkoutSession = async (targetMuscle: string): Promise<Trac
     });
 
     const text = response.text || "{}";
-    // Ensure we parse pure JSON even if the model adds markdown ticks
     const cleanJson = text.replace(/```json|```/g, '');
     const data = JSON.parse(cleanJson);
     
@@ -226,7 +225,42 @@ export const generateWorkoutSession = async (targetMuscle: string): Promise<Trac
     return data as TrackerSession;
 
   } catch (error: any) {
-    handleApiError(error, 'tracker'); // Log error
-    throw error; // Re-throw to UI
+    handleApiError(error, 'tracker'); 
+    throw error; 
   }
-}
+};
+
+export const generateAlternativeExercise = async (currentExercise: string, targetMuscle: string): Promise<TrackerExercise> => {
+  try {
+    const ai = getClient();
+    const prompt = `
+      The user wants to skip "${currentExercise}" for target "${targetMuscle}".
+      Suggest 1 ALTERNATIVE exercise that targets the same muscle but is different.
+      Return purely valid JSON:
+      { "name": "New Exercise Name", "targetSets": 3, "targetReps": "10-12", "restTime": "60s" }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
+
+    const text = response.text || "{}";
+    const cleanJson = text.replace(/```json|```/g, '');
+    const data = JSON.parse(cleanJson);
+    
+    return { ...data, logs: [] };
+
+  } catch (error: any) {
+    console.error("Failed to generate alternative", error);
+    // Fallback if AI fails
+    return {
+      name: `Alternative to ${currentExercise}`,
+      targetSets: 3,
+      targetReps: "10-12",
+      restTime: "60s",
+      logs: []
+    };
+  }
+};

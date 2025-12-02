@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
-import { TrackerSession, TrackerSetLog } from '../types';
+import React, { useState, useEffect } from 'react';
+import { TrackerSession, TrackerSetLog, SavedPlan } from '../types';
+import { generateAlternativeExercise } from '../services/geminiService';
 
 interface ActiveSessionProps {
   session: TrackerSession;
@@ -13,11 +14,70 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
   const [currentStep, setCurrentStep] = useState<'warmup' | 'workout' | 'summary'>('warmup');
   const [currentExIndex, setCurrentExIndex] = useState(0);
   
+  // History / Previous Stats
+  const [previousBest, setPreviousBest] = useState<string | null>(null);
+  
   // Input State
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
 
+  // Loading state for skipping
+  const [isReplacing, setIsReplacing] = useState(false);
+
   const currentExercise = session.exercises[currentExIndex];
+
+  // Effect to find previous history for the current exercise
+  useEffect(() => {
+    if (currentStep !== 'workout') return;
+
+    const findPreviousStats = () => {
+      try {
+        const rawHistory = localStorage.getItem('gym_history');
+        if (!rawHistory) {
+          setPreviousBest(null);
+          return;
+        }
+
+        const history: SavedPlan[] = JSON.parse(rawHistory);
+        // Filter only tracker sessions
+        const trackerSessions = history.filter(h => h.type === 'tracker' && typeof h.content !== 'string');
+
+        let bestWeight = 0;
+        let bestReps = 0;
+        let found = false;
+
+        // Iterate through history to find matching exercise
+        trackerSessions.forEach(h => {
+          const pastSession = h.content as TrackerSession;
+          const match = pastSession.exercises.find(ex => 
+            ex.name.toLowerCase().trim() === currentExercise.name.toLowerCase().trim()
+          );
+
+          if (match && match.logs.length > 0) {
+            // Find max weight lifted in that session for this exercise
+            match.logs.forEach(log => {
+              if (log.weight > bestWeight) {
+                bestWeight = log.weight;
+                bestReps = log.reps;
+                found = true;
+              }
+            });
+          }
+        });
+
+        if (found) {
+          setPreviousBest(`${bestWeight}kg x ${bestReps}`);
+        } else {
+          setPreviousBest(null);
+        }
+      } catch (err) {
+        console.error("Error reading history", err);
+        setPreviousBest(null);
+      }
+    };
+
+    findPreviousStats();
+  }, [currentExercise.name, currentStep]);
 
   const handleLogSet = () => {
     if (!weight || !reps) return;
@@ -53,9 +113,33 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
       setCurrentExIndex(prev => prev + 1);
       setWeight('');
       setReps('');
+      setPreviousBest(null); // Reset for next animation
     } else {
       setCurrentStep('summary');
     }
+  };
+
+  const handleSkipExercise = async () => {
+    if (!confirm("Do you want to skip this exercise and find a new one?")) return;
+    
+    setIsReplacing(true);
+    try {
+      const newExercise = await generateAlternativeExercise(currentExercise.name, session.targetMuscle);
+      
+      const updatedExercises = [...session.exercises];
+      updatedExercises[currentExIndex] = newExercise; // Replace current
+      
+      setSession({ ...session, exercises: updatedExercises });
+      setWeight('');
+      setReps('');
+      setPreviousBest(null);
+      alert(`Replaced with: ${newExercise.name}`);
+
+    } catch (e) {
+      alert("Failed to find alternative. Moving to next.");
+      handleNextExercise();
+    }
+    setIsReplacing(false);
   };
 
   if (currentStep === 'warmup') {
@@ -109,15 +193,24 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col min-h-[500px]">
       {/* Header */}
-      <div className="bg-gray-900 text-white p-4 flex justify-between items-center">
-        <div>
+      <div className="bg-gray-900 text-white p-4 flex justify-between items-center shadow-md z-10">
+        <div className="flex-1 min-w-0">
           <h3 className="text-xs font-bold text-gray-400 uppercase">Exercise {currentExIndex + 1} of {session.exercises.length}</h3>
-          <h2 className="text-xl font-bold truncate pr-2">{currentExercise.name}</h2>
+          <h2 className="text-xl font-bold truncate pr-2 leading-tight">{currentExercise.name}</h2>
         </div>
-        <button onClick={onCancel} className="text-xs bg-gray-800 px-3 py-1 rounded">Exit</button>
+        <button onClick={onCancel} className="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors whitespace-nowrap ml-2">Exit</button>
       </div>
 
-      <div className="p-4 flex-grow flex flex-col">
+      <div className="p-4 flex-grow flex flex-col overflow-y-auto">
+        
+        {/* Previous Best Badge */}
+        {previousBest && (
+          <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded-lg flex items-center justify-between shadow-sm animate-fadeIn">
+            <span className="text-xs font-bold uppercase tracking-wider">🏆 Your Personal Best</span>
+            <span className="font-black text-lg">{previousBest}</span>
+          </div>
+        )}
+
         {/* Info Card */}
         <div className="grid grid-cols-3 gap-2 mb-6 text-center">
            <div className="bg-gray-100 p-2 rounded">
@@ -135,15 +228,15 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
         </div>
 
         {/* Logs */}
-        <div className="flex-grow space-y-2 mb-4 overflow-y-auto max-h-48">
+        <div className="flex-grow space-y-2 mb-4">
            {currentExercise.logs.map((log, i) => (
-             <div key={i} className="flex justify-between items-center bg-green-50 p-3 rounded border border-green-100">
+             <div key={i} className="flex justify-between items-center bg-green-50 p-3 rounded border border-green-100 animate-slideIn">
                 <span className="font-bold text-green-800">Set {log.setNumber}</span>
-                <span className="text-sm">{log.weight}kg x {log.reps} reps</span>
+                <span className="text-sm font-semibold">{log.weight}kg x {log.reps} reps</span>
              </div>
            ))}
            {currentExercise.logs.length > 0 && (
-             <div className="bg-blue-50 text-blue-800 text-xs p-2 rounded mt-2 border border-blue-100">
+             <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded mt-2 border border-blue-100 font-medium">
                💡 AI Tip: {currentExercise.logs[currentExercise.logs.length - 1].suggestion}
              </div>
            )}
@@ -151,32 +244,42 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
 
         {/* Input Area */}
         {currentExercise.logs.length < currentExercise.targetSets ? (
-          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-             <p className="text-sm font-bold text-gray-700 mb-2">Log Set {currentExercise.logs.length + 1}</p>
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-auto">
+             <div className="flex justify-between items-center mb-2">
+                <p className="text-sm font-bold text-gray-700">Log Set {currentExercise.logs.length + 1}</p>
+                <button 
+                  onClick={handleSkipExercise}
+                  disabled={isReplacing}
+                  className="text-xs text-red-500 font-bold hover:underline disabled:text-gray-400"
+                >
+                  {isReplacing ? 'Finding new exercise...' : 'Skip & Find New →'}
+                </button>
+             </div>
+             
              <div className="flex gap-3 mb-3">
                <input 
                  type="number" placeholder="kg" value={weight} onChange={e => setWeight(e.target.value)}
-                 className="w-1/2 p-3 border rounded-lg text-lg font-bold text-center"
+                 className="w-1/2 p-3 border-2 border-gray-200 focus:border-red-500 focus:outline-none rounded-lg text-lg font-bold text-center"
                />
                <input 
                  type="number" placeholder="reps" value={reps} onChange={e => setReps(e.target.value)}
-                 className="w-1/2 p-3 border rounded-lg text-lg font-bold text-center"
+                 className="w-1/2 p-3 border-2 border-gray-200 focus:border-red-500 focus:outline-none rounded-lg text-lg font-bold text-center"
                />
              </div>
              <button 
                onClick={handleLogSet}
                disabled={!weight || !reps}
-               className="w-full py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50"
+               className="w-full py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 transition-colors shadow-md active:scale-95 transform"
              >
                ✅ Log Set
              </button>
           </div>
         ) : (
-          <div className="text-center py-4">
-             <p className="text-green-600 font-bold mb-3">All sets completed!</p>
+          <div className="text-center py-4 mt-auto">
+             <p className="text-green-600 font-bold mb-3 text-lg">✨ All sets completed!</p>
              <button 
                onClick={handleNextExercise}
-               className="w-full py-3 bg-gray-900 text-white font-bold rounded-lg"
+               className="w-full py-4 bg-gray-900 text-white font-bold rounded-lg shadow-lg hover:bg-black transition-transform active:scale-95"
              >
                Next Exercise →
              </button>

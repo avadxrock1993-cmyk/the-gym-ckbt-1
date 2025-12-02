@@ -7,11 +7,12 @@ import PlanDisplay from './components/PlanDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
 import TrackerSetup from './components/TrackerSetup';
 import ActiveSession from './components/ActiveSession';
-import { DietFormData, WorkoutFormData, TrackerSession } from './types';
+import HistoryView from './components/HistoryView';
+import { DietFormData, WorkoutFormData, TrackerSession, SavedPlan } from './types';
 import { generateDietPlan, generateWorkoutPlan, generateWorkoutSession } from './services/geminiService';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout' | 'tracker-setup' | 'tracker-active'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout' | 'tracker-setup' | 'tracker-active' | 'history'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
   const [lastDietData, setLastDietData] = useState<DietFormData | null>(null);
@@ -51,11 +52,25 @@ const App: React.FC = () => {
     window.history.pushState({ view }, '');
   };
 
+  const savePlanToHistory = (type: 'diet' | 'workout', title: string, content: string) => {
+    const historyItem: SavedPlan = {
+      id: Date.now().toString(),
+      type,
+      date: new Date().toISOString(),
+      title,
+      content
+    };
+    const existing = localStorage.getItem('gym_history');
+    const history = existing ? JSON.parse(existing) : [];
+    localStorage.setItem('gym_history', JSON.stringify([historyItem, ...history]));
+  };
+
   const handleDietSubmit = async (data: DietFormData) => {
     setLastDietData(data);
     setIsLoading(true);
     const plan = await generateDietPlan(data);
     setGeneratedPlan(plan);
+    savePlanToHistory('diet', `Diet Plan for ${data.goal}`, plan);
     setIsLoading(false);
   };
 
@@ -73,14 +88,15 @@ const App: React.FC = () => {
     setIsLoading(true);
     const plan = await generateWorkoutPlan(data);
     setGeneratedPlan(plan);
+    savePlanToHistory('workout', `Workout: ${data.focus}`, plan);
     setIsLoading(false);
   };
 
   // Tracker Handlers
-  const handleStartTracker = async (muscle: string) => {
+  const handleStartTracker = async (muscle: string, exerciseCount: number) => {
     setIsLoading(true);
     try {
-      const session = await generateWorkoutSession(muscle);
+      const session = await generateWorkoutSession(muscle, exerciseCount);
       setActiveSession(session);
       navigate('tracker-active');
     } catch (e) {
@@ -90,8 +106,7 @@ const App: React.FC = () => {
   };
 
   const handleFinishSession = (session: TrackerSession) => {
-    // Here you could save to local storage history
-    const historyItem = {
+    const historyItem: SavedPlan = {
       id: Date.now().toString(),
       type: 'tracker',
       date: new Date().toISOString(),
@@ -104,6 +119,30 @@ const App: React.FC = () => {
     
     alert("Workout Saved to History! 💪");
     navigate('home');
+  };
+
+  const handleViewSavedPlan = (plan: SavedPlan) => {
+    if (plan.type === 'tracker') {
+      return; 
+    }
+    setGeneratedPlan(plan.content as string);
+    // Determine view based on type to render correct PlanDisplay props
+    if (plan.type === 'diet') {
+      setCurrentView('diet'); // Reuses logic but bypasses form
+    } else {
+      setCurrentView('workout');
+    }
+  };
+
+  const handleRepeatSession = (oldSession: TrackerSession) => {
+    // Reset logs for a fresh start
+    const newSession = {
+      ...oldSession,
+      startTime: new Date().toISOString(),
+      exercises: oldSession.exercises.map(ex => ({ ...ex, logs: [] }))
+    };
+    setActiveSession(newSession);
+    navigate('tracker-active');
   };
 
   const handleCrossNavigate = (target: 'diet' | 'workout') => {
@@ -131,6 +170,16 @@ const App: React.FC = () => {
           message={currentView === 'tracker-setup' ? 'AI is creating your live session...' : (currentView === 'diet' ? 'Cooking up your diet plan...' : 'Forging your workout routine...')} 
           userName={userName}
           goal={userGoal}
+        />
+      );
+    }
+
+    if (currentView === 'history') {
+      return (
+        <HistoryView 
+          onBack={() => navigate('home')} 
+          onViewPlan={handleViewSavedPlan}
+          onRepeatSession={handleRepeatSession}
         />
       );
     }
@@ -197,7 +246,7 @@ const App: React.FC = () => {
             </div>
           </button>
 
-          {/* AI Tracker Card - NEW */}
+          {/* AI Tracker Card */}
           <button 
             onClick={() => navigate('tracker-setup')}
             className="group relative bg-gray-900 border-2 border-gray-800 hover:border-red-500 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
@@ -219,7 +268,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header onHomeClick={() => navigate('home')} onTrackerClick={() => navigate('tracker-setup')} />
+      <Header 
+        onHomeClick={() => navigate('home')} 
+        onTrackerClick={() => navigate('tracker-setup')}
+        onHistoryClick={() => navigate('history')}
+      />
       <main className="flex-grow flex flex-col items-center p-4">
         <div className="w-full max-w-5xl mt-6">
           {renderContent()}

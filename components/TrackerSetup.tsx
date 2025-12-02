@@ -2,20 +2,21 @@
 import React, { useState } from 'react';
 
 interface TrackerSetupProps {
-  onStartSession: (muscle: string) => void;
+  onStartSession: (muscle: string, exerciseCount: number) => void;
   onCancel: () => void;
 }
 
 const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel }) => {
   const [target, setTarget] = useState('');
   const [customTarget, setCustomTarget] = useState('');
+  const [exerciseCount, setExerciseCount] = useState(5);
 
   const COMMON_TARGETS = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Abs', 'Push Day', 'Pull Day'];
 
   const handleStart = () => {
     const finalTarget = customTarget || target;
     if (finalTarget) {
-      onStartSession(finalTarget);
+      onStartSession(finalTarget, exerciseCount);
     }
   };
 
@@ -45,6 +46,26 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
           placeholder="e.g. Glutes & Hamstrings"
           className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none"
         />
+      </div>
+
+      {/* Exercise Count Selection */}
+      <div className="mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div className="flex justify-between items-center mb-2">
+           <label className="block text-sm font-bold text-gray-800">Number of Exercises</label>
+           <span className="text-xl font-black text-red-600 bg-white px-3 py-1 rounded border border-gray-200 shadow-sm">{exerciseCount}</span>
+        </div>
+        <input 
+          type="range" 
+          min="3" max="8" step="1"
+          value={exerciseCount}
+          onChange={(e) => setExerciseCount(parseInt(e.target.value))}
+          className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-red-600"
+        />
+        <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
+           <span>3 (Quick)</span>
+           <span>5 (Standard)</span>
+           <span>8 (Intense)</span>
+        </div>
       </div>
 
       <div className="flex gap-4">
