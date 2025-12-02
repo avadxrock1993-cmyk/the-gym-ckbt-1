@@ -64,7 +64,16 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
 
   return (
     <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-red-600 animate-fadeIn">
-      <h2 className="text-3xl font-extrabold text-gray-900 mb-2 text-center">Start Live Workout</h2>
+      
+      {/* Branding Header */}
+      <div className="text-center mb-6 border-b border-gray-100 pb-4">
+         <h1 className="text-3xl font-black text-red-600 tracking-tighter uppercase italic">
+            THE GYM <span className="text-gray-900">CKBT</span>
+         </h1>
+         <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">AI Personal Trainer</p>
+      </div>
+
+      <h2 className="text-2xl font-extrabold text-gray-900 mb-2 text-center">Start Live Workout</h2>
       <p className="text-gray-500 text-center mb-6">What are we training today?</p>
       
       <div className="grid grid-cols-2 gap-3 mb-4">

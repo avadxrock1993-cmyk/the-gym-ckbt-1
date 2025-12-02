@@ -153,6 +153,14 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
   if (currentStep === 'warmup') {
     return (
       <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-yellow-500 min-h-[500px] flex flex-col">
+        
+        {/* Branding */}
+        <div className="text-center mb-6">
+           <h2 className="text-2xl font-black text-red-600 tracking-tighter uppercase italic">
+              THE GYM <span className="text-gray-900">CKBT</span>
+           </h2>
+        </div>
+
         <h2 className="text-2xl font-black text-gray-900 mb-4 uppercase">Warmup Routine</h2>
         <div className="space-y-3 mb-6 flex-grow">
           {session.warmup.map((act, idx) => (
@@ -183,6 +191,14 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
   if (currentStep === 'summary') {
     return (
       <div className="bg-white p-6 rounded-xl shadow-lg text-center">
+        
+        {/* Branding */}
+        <div className="mb-6">
+           <h2 className="text-3xl font-black text-red-600 tracking-tighter uppercase italic">
+              THE GYM <span className="text-gray-900">CKBT</span>
+           </h2>
+        </div>
+
         <h2 className="text-3xl font-black text-green-600 mb-2">WORKOUT COMPLETE!</h2>
         <p className="text-gray-500 mb-6">Great session. Here is what you did:</p>
         
@@ -208,13 +224,23 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
   // Workout View
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col min-h-[500px]">
-      {/* Header */}
-      <div className="bg-gray-900 text-white p-4 flex justify-between items-center shadow-md z-10">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-xs font-bold text-gray-400 uppercase">Exercise {currentExIndex + 1} of {session.exercises.length}</h3>
-          <h2 className="text-xl font-bold truncate pr-2 leading-tight">{currentExercise.name}</h2>
+      {/* Header with Branding */}
+      <div className="bg-gray-900 text-white p-3 shadow-md z-10">
+        <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-2">
+           <h2 className="text-lg font-black tracking-tighter uppercase italic text-white">
+              THE GYM <span className="text-red-500">CKBT</span>
+           </h2>
+           <button onClick={handleManualExit} className="text-xs bg-red-900 hover:bg-red-700 text-red-100 px-3 py-1 rounded font-bold uppercase transition-colors">
+              Exit
+           </button>
         </div>
-        <button onClick={handleManualExit} className="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors whitespace-nowrap ml-2">Exit</button>
+        
+        <div className="flex justify-between items-end">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-xs font-bold text-gray-400 uppercase">Exercise {currentExIndex + 1} of {session.exercises.length}</h3>
+            <h2 className="text-xl font-bold truncate pr-2 leading-tight">{currentExercise.name}</h2>
+          </div>
+        </div>
       </div>
 
       <div className="p-4 flex-grow flex flex-col overflow-y-auto">
