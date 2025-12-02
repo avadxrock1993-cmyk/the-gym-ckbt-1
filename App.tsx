@@ -8,11 +8,12 @@ import LoadingSpinner from './components/LoadingSpinner';
 import TrackerSetup from './components/TrackerSetup';
 import ActiveSession from './components/ActiveSession';
 import HistoryView from './components/HistoryView';
+import TrackerHistoryDetails from './components/TrackerHistoryDetails';
 import { DietFormData, WorkoutFormData, TrackerSession, SavedPlan } from './types';
 import { generateDietPlan, generateWorkoutPlan, generateWorkoutSession } from './services/geminiService';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout' | 'tracker-setup' | 'tracker-active' | 'history'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout' | 'tracker-setup' | 'tracker-active' | 'history' | 'tracker-details'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
   const [lastDietData, setLastDietData] = useState<DietFormData | null>(null);
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   
   // Tracker State
   const [activeSession, setActiveSession] = useState<TrackerSession | null>(null);
+  const [selectedHistorySession, setSelectedHistorySession] = useState<TrackerSession | null>(null);
 
   // Handle Mobile Back Button
   useEffect(() => {
@@ -29,11 +31,13 @@ const App: React.FC = () => {
         if (event.state.view === 'home') {
           setGeneratedPlan(null);
           setActiveSession(null);
+          setSelectedHistorySession(null);
         }
       } else {
         setCurrentView('home');
         setGeneratedPlan(null);
         setActiveSession(null);
+        setSelectedHistorySession(null);
       }
     };
 
@@ -48,6 +52,7 @@ const App: React.FC = () => {
     if (view === 'home') {
       setGeneratedPlan(null);
       setActiveSession(null);
+      setSelectedHistorySession(null);
     }
     window.history.pushState({ view }, '');
   };
@@ -123,6 +128,9 @@ const App: React.FC = () => {
 
   const handleViewSavedPlan = (plan: SavedPlan) => {
     if (plan.type === 'tracker') {
+      // Show details view for tracker history
+      setSelectedHistorySession(plan.content as TrackerSession);
+      navigate('tracker-details');
       return; 
     }
     setGeneratedPlan(plan.content as string);
@@ -180,6 +188,16 @@ const App: React.FC = () => {
           onBack={() => navigate('home')} 
           onViewPlan={handleViewSavedPlan}
           onRepeatSession={handleRepeatSession}
+        />
+      );
+    }
+
+    if (currentView === 'tracker-details' && selectedHistorySession) {
+      return (
+        <TrackerHistoryDetails 
+          session={selectedHistorySession}
+          onBack={() => navigate('history')}
+          onRepeat={() => handleRepeatSession(selectedHistorySession)}
         />
       );
     }
