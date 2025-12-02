@@ -24,6 +24,13 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
   // Loading state for skipping
   const [isReplacing, setIsReplacing] = useState(false);
 
+  // --- AUTO SAVE LOGIC ---
+  useEffect(() => {
+    // Save to localStorage whenever session state changes
+    // This ensures data persists on refresh/internet loss
+    localStorage.setItem('current_workout_session', JSON.stringify(session));
+  }, [session]);
+
   const currentExercise = session.exercises[currentExIndex];
 
   // Effect to find previous history for the current exercise
@@ -39,14 +46,12 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
         }
 
         const history: SavedPlan[] = JSON.parse(rawHistory);
-        // Filter only tracker sessions
         const trackerSessions = history.filter(h => h.type === 'tracker' && typeof h.content !== 'string');
 
         let bestWeight = 0;
         let bestReps = 0;
         let found = false;
 
-        // Iterate through history to find matching exercise
         trackerSessions.forEach(h => {
           const pastSession = h.content as TrackerSession;
           const match = pastSession.exercises.find(ex => 
@@ -54,7 +59,6 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
           );
 
           if (match && match.logs.length > 0) {
-            // Find max weight lifted in that session for this exercise
             match.logs.forEach(log => {
               if (log.weight > bestWeight) {
                 bestWeight = log.weight;
@@ -85,8 +89,6 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
     const r = parseInt(reps);
     const w = parseFloat(weight);
     
-    // Simple Logic for Recommendation
-    // Parse target reps "8-12" -> max 12
     const maxTarget = parseInt(currentExercise.targetReps.split('-')[1] || currentExercise.targetReps);
     let suggestion = "Maintain weight.";
     if (r > maxTarget) suggestion = "Great job! Increase weight by 2.5kg next set.";
@@ -104,7 +106,6 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
     
     setSession({ ...session, exercises: updatedExercises });
     
-    // Clear inputs
     setReps('');
   };
 
@@ -113,7 +114,7 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
       setCurrentExIndex(prev => prev + 1);
       setWeight('');
       setReps('');
-      setPreviousBest(null); // Reset for next animation
+      setPreviousBest(null); 
     } else {
       setCurrentStep('summary');
     }
@@ -127,7 +128,7 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
       const newExercise = await generateAlternativeExercise(currentExercise.name, session.targetMuscle);
       
       const updatedExercises = [...session.exercises];
-      updatedExercises[currentExIndex] = newExercise; // Replace current
+      updatedExercises[currentExIndex] = newExercise; 
       
       setSession({ ...session, exercises: updatedExercises });
       setWeight('');
@@ -142,11 +143,18 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
     setIsReplacing(false);
   };
 
+  const handleManualExit = () => {
+      if (confirm("Are you sure you want to exit? Your progress so far is saved temporarily, but ending now will lose unsaved progress if you don't return.")) {
+          // Clean up handled by parent if needed, but App.tsx handles the actual storage clear on route change
+          onCancel();
+      }
+  };
+
   if (currentStep === 'warmup') {
     return (
-      <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-yellow-500">
+      <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-yellow-500 min-h-[500px] flex flex-col">
         <h2 className="text-2xl font-black text-gray-900 mb-4 uppercase">Warmup Routine</h2>
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3 mb-6 flex-grow">
           {session.warmup.map((act, idx) => (
              <div key={idx} className="flex items-center p-3 bg-yellow-50 rounded-lg">
                 <input type="checkbox" className="w-5 h-5 accent-yellow-600 mr-3" />
@@ -154,12 +162,20 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
              </div>
           ))}
         </div>
-        <button 
-          onClick={() => setCurrentStep('workout')}
-          className="w-full py-4 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 uppercase tracking-wider"
-        >
-          Start Workout 🏋️‍♂️
-        </button>
+        <div className="mt-auto space-y-3">
+            <button 
+            onClick={() => setCurrentStep('workout')}
+            className="w-full py-4 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 uppercase tracking-wider"
+            >
+            Start Workout 🏋️‍♂️
+            </button>
+            <button 
+                onClick={handleManualExit}
+                className="w-full py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200"
+            >
+                Exit Session
+            </button>
+        </div>
       </div>
     );
   }
@@ -198,7 +214,7 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
           <h3 className="text-xs font-bold text-gray-400 uppercase">Exercise {currentExIndex + 1} of {session.exercises.length}</h3>
           <h2 className="text-xl font-bold truncate pr-2 leading-tight">{currentExercise.name}</h2>
         </div>
-        <button onClick={onCancel} className="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors whitespace-nowrap ml-2">Exit</button>
+        <button onClick={handleManualExit} className="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors whitespace-nowrap ml-2">Exit</button>
       </div>
 
       <div className="p-4 flex-grow flex flex-col overflow-y-auto">
@@ -285,6 +301,16 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
              </button>
           </div>
         )}
+      </div>
+      
+      {/* Explicit Back/Exit Button */}
+      <div className="bg-gray-50 p-3 border-t border-gray-200">
+         <button 
+            onClick={handleManualExit}
+            className="w-full py-2 bg-white text-gray-500 font-bold rounded-lg border border-gray-300 hover:bg-gray-100"
+         >
+            ← Exit / Pause Session
+         </button>
       </div>
     </div>
   );

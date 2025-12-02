@@ -23,10 +23,43 @@ const App: React.FC = () => {
   const [activeSession, setActiveSession] = useState<TrackerSession | null>(null);
   const [selectedHistorySession, setSelectedHistorySession] = useState<TrackerSession | null>(null);
 
+  // --- SESSION RESTORATION LOGIC ---
+  useEffect(() => {
+    // 1. Check if there is an active crashed/interrupted session in storage
+    const savedInterruptedSession = localStorage.getItem('current_workout_session');
+    
+    if (savedInterruptedSession) {
+      try {
+        const parsedSession = JSON.parse(savedInterruptedSession);
+        // Restore session and go to active view
+        setActiveSession(parsedSession);
+        setCurrentView('tracker-active');
+        // Update history state so back button works nicely
+        window.history.replaceState({ view: 'tracker-active' }, '');
+      } catch (e) {
+        console.error("Failed to restore session", e);
+        localStorage.removeItem('current_workout_session');
+      }
+    }
+  }, []);
+
   // Handle Mobile Back Button
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.view) {
+        // If user tries to go back FROM tracker-active, warn them or handle logic
+        if (currentView === 'tracker-active' && event.state.view !== 'tracker-active') {
+           const confirmExit = window.confirm("Workout in progress! Going back will pause/exit. Are you sure?");
+           if (!confirmExit) {
+             // Push state back to prevent navigation
+             window.history.pushState({ view: 'tracker-active' }, '');
+             return;
+           } else {
+             // If they confirm, clear the temp storage
+             localStorage.removeItem('current_workout_session');
+           }
+        }
+
         setCurrentView(event.state.view);
         if (event.state.view === 'home') {
           setGeneratedPlan(null);
@@ -42,12 +75,18 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('popstate', handlePopState);
-    window.history.replaceState({ view: 'home' }, '');
+    // Initial state logic handled in mount effect
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [currentView]);
 
   const navigate = (view: typeof currentView) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Safety check if leaving active session
+    if (currentView === 'tracker-active' && view !== 'tracker-active') {
+       localStorage.removeItem('current_workout_session');
+    }
+
     setCurrentView(view);
     if (view === 'home') {
       setGeneratedPlan(null);
@@ -58,6 +97,15 @@ const App: React.FC = () => {
   };
 
   const savePlanToHistory = (type: 'diet' | 'workout', title: string, content: string) => {
+    const existing = localStorage.getItem('gym_history');
+    let history: SavedPlan[] = [];
+    try {
+        history = existing ? JSON.parse(existing) : [];
+        if (!Array.isArray(history)) history = [];
+    } catch (e) {
+        history = [];
+    }
+
     const historyItem: SavedPlan = {
       id: Date.now().toString(),
       type,
@@ -65,9 +113,12 @@ const App: React.FC = () => {
       title,
       content
     };
-    const existing = localStorage.getItem('gym_history');
-    const history = existing ? JSON.parse(existing) : [];
-    localStorage.setItem('gym_history', JSON.stringify([historyItem, ...history]));
+    
+    try {
+        localStorage.setItem('gym_history', JSON.stringify([historyItem, ...history]));
+    } catch (e) {
+        alert("Storage Full! Could not save history. Please delete old items.");
+    }
   };
 
   const handleDietSubmit = async (data: DietFormData) => {
@@ -103,6 +154,8 @@ const App: React.FC = () => {
     try {
       const session = await generateWorkoutSession(muscle, exerciseCount);
       setActiveSession(session);
+      // Immediately save to temp storage
+      localStorage.setItem('current_workout_session', JSON.stringify(session));
       navigate('tracker-active');
     } catch (e) {
       alert("Failed to create session. Please check connection.");
@@ -111,6 +164,14 @@ const App: React.FC = () => {
   };
 
   const handleFinishSession = (session: TrackerSession) => {
+    // 1. Save to permanent history
+    const existing = localStorage.getItem('gym_history');
+    let history: SavedPlan[] = [];
+    try {
+        history = existing ? JSON.parse(existing) : [];
+        if (!Array.isArray(history)) history = [];
+    } catch (e) { history = []; }
+
     const historyItem: SavedPlan = {
       id: Date.now().toString(),
       type: 'tracker',
@@ -118,38 +179,42 @@ const App: React.FC = () => {
       title: `${session.targetMuscle} Workout`,
       content: session
     };
-    const existing = localStorage.getItem('gym_history');
-    const history = existing ? JSON.parse(existing) : [];
-    localStorage.setItem('gym_history', JSON.stringify([historyItem, ...history]));
     
-    alert("Workout Saved to History! 💪");
-    navigate('home');
+    try {
+        localStorage.setItem('gym_history', JSON.stringify([historyItem, ...history]));
+        
+        // 2. CLEAR the temp interrupted session
+        localStorage.removeItem('current_workout_session');
+        
+        alert("Workout Saved to History! 💪");
+        navigate('home');
+    } catch (e) {
+        alert("Storage Full! Could not save workout.");
+    }
   };
 
   const handleViewSavedPlan = (plan: SavedPlan) => {
     if (plan.type === 'tracker') {
-      // Show details view for tracker history
       setSelectedHistorySession(plan.content as TrackerSession);
       navigate('tracker-details');
       return; 
     }
     setGeneratedPlan(plan.content as string);
-    // Determine view based on type to render correct PlanDisplay props
     if (plan.type === 'diet') {
-      setCurrentView('diet'); // Reuses logic but bypasses form
+      setCurrentView('diet');
     } else {
       setCurrentView('workout');
     }
   };
 
   const handleRepeatSession = (oldSession: TrackerSession) => {
-    // Reset logs for a fresh start
     const newSession = {
       ...oldSession,
       startTime: new Date().toISOString(),
       exercises: oldSession.exercises.map(ex => ({ ...ex, logs: [] }))
     };
     setActiveSession(newSession);
+    localStorage.setItem('current_workout_session', JSON.stringify(newSession));
     navigate('tracker-active');
   };
 
@@ -221,7 +286,6 @@ const App: React.FC = () => {
     if (currentView === 'tracker-setup') return <TrackerSetup onStartSession={handleStartTracker} onCancel={() => navigate('home')} />;
     if (currentView === 'tracker-active' && activeSession) return <ActiveSession session={activeSession} onFinish={handleFinishSession} onCancel={() => navigate('home')} />;
 
-    // Home View
     return (
       <div className="flex flex-col items-center justify-center space-y-8 py-4">
         <div className="text-center max-w-2xl px-6 flex flex-col items-center">
@@ -234,7 +298,6 @@ const App: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl px-6">
-          {/* Diet Card */}
           <button 
             onClick={() => navigate('diet')}
             className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
@@ -249,7 +312,6 @@ const App: React.FC = () => {
             </div>
           </button>
 
-          {/* Workout Card */}
           <button 
             onClick={() => navigate('workout')}
             className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
@@ -264,7 +326,6 @@ const App: React.FC = () => {
             </div>
           </button>
 
-          {/* AI Tracker Card */}
           <button 
             onClick={() => navigate('tracker-setup')}
             className="group relative bg-gray-900 border-2 border-gray-800 hover:border-red-500 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
