@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { SavedPlan, TrackerSession } from '../types';
 
 interface TrackerSetupProps {
   onStartSession: (muscle: string, exerciseCount: number) => void;
@@ -9,12 +10,53 @@ interface TrackerSetupProps {
 const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel }) => {
   const [target, setTarget] = useState('');
   const [customTarget, setCustomTarget] = useState('');
-  const [exerciseCount, setExerciseCount] = useState(5);
+  const [exerciseCount, setExerciseCount] = useState(6);
+  
+  // Push Day Specific State
+  const [pushFocus, setPushFocus] = useState<'Chest' | 'Shoulder' | null>(null);
+  const [recommendedPushFocus, setRecommendedPushFocus] = useState<'Chest' | 'Shoulder' | null>(null);
 
   const COMMON_TARGETS = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Abs', 'Push Day', 'Pull Day'];
 
+  // Check history when component mounts to find last Push Day preference
+  useEffect(() => {
+    try {
+      const rawHistory = localStorage.getItem('gym_history');
+      if (rawHistory) {
+        const history: SavedPlan[] = JSON.parse(rawHistory);
+        // Filter for tracker sessions that are "Push Day"
+        const pushSessions = history
+          .filter(h => h.type === 'tracker' && h.title.includes('Push Day'))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Newest first
+
+        if (pushSessions.length > 0) {
+          const lastSessionTitle = pushSessions[0].title;
+          if (lastSessionTitle.includes('Chest Focused')) {
+            setRecommendedPushFocus('Shoulder');
+          } else if (lastSessionTitle.includes('Shoulder Focused')) {
+            setRecommendedPushFocus('Chest');
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error reading history for recommendation", e);
+    }
+  }, []);
+
+  const handleTargetClick = (t: string) => {
+    setTarget(t);
+    setCustomTarget('');
+    setPushFocus(null); // Reset sub-selection
+  };
+
   const handleStart = () => {
-    const finalTarget = customTarget || target;
+    let finalTarget = customTarget || target;
+    
+    // Append sub-focus for Push Day
+    if (finalTarget === 'Push Day' && pushFocus) {
+      finalTarget = `Push Day (${pushFocus} Focused)`;
+    }
+
     if (finalTarget) {
       onStartSession(finalTarget, exerciseCount);
     }
@@ -29,7 +71,7 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
         {COMMON_TARGETS.map(t => (
           <button
             key={t}
-            onClick={() => { setTarget(t); setCustomTarget(''); }}
+            onClick={() => handleTargetClick(t)}
             className={`p-3 rounded-lg font-bold border-2 transition-all ${target === t ? 'bg-red-600 text-white border-red-600' : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-red-300'}`}
           >
             {t}
@@ -37,12 +79,46 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
         ))}
       </div>
 
+      {/* Push Day Specific Sub-Selection */}
+      {target === 'Push Day' && (
+        <div className="mb-6 bg-red-50 p-4 rounded-xl border border-red-200 animate-fadeIn">
+          <p className="text-sm font-bold text-red-800 mb-3 text-center">Select Push Focus:</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setPushFocus('Chest')}
+              className={`flex-1 p-3 rounded-lg border-2 font-bold relative ${pushFocus === 'Chest' ? 'bg-white border-red-600 text-red-600' : 'bg-white border-transparent text-gray-600 hover:bg-gray-50'}`}
+            >
+              Chest Focused
+              {recommendedPushFocus === 'Chest' && (
+                <span className="absolute -top-2 -right-2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm">
+                  Recommended
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setPushFocus('Shoulder')}
+              className={`flex-1 p-3 rounded-lg border-2 font-bold relative ${pushFocus === 'Shoulder' ? 'bg-white border-red-600 text-red-600' : 'bg-white border-transparent text-gray-600 hover:bg-gray-50'}`}
+            >
+              Shoulder Focused
+              {recommendedPushFocus === 'Shoulder' && (
+                <span className="absolute -top-2 -right-2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm">
+                  Recommended
+                </span>
+              )}
+            </button>
+          </div>
+          <p className="text-xs text-center text-gray-500 mt-2">
+            {pushFocus === 'Chest' ? 'Plan: 3-4 Chest, 1-2 Shoulder, 2-3 Tricep' : pushFocus === 'Shoulder' ? 'Plan: 3-4 Shoulder, 1-2 Chest, 2-3 Tricep' : 'Select a focus to continue'}
+          </p>
+        </div>
+      )}
+
       <div className="mb-6">
         <label className="block text-sm font-bold text-gray-700 mb-1">Or type custom focus:</label>
         <input 
           type="text" 
           value={customTarget}
-          onChange={(e) => { setCustomTarget(e.target.value); setTarget(''); }}
+          onChange={(e) => { setCustomTarget(e.target.value); setTarget(''); setPushFocus(null); }}
           placeholder="e.g. Glutes & Hamstrings"
           className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none"
         />
@@ -63,7 +139,7 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
         />
         <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
            <span>3 (Quick)</span>
-           <span>5 (Standard)</span>
+           <span>6 (Standard)</span>
            <span>8 (Intense)</span>
         </div>
       </div>
@@ -72,7 +148,7 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
          <button onClick={onCancel} className="flex-1 py-3 text-gray-600 font-bold bg-gray-100 rounded-lg">Cancel</button>
          <button 
            onClick={handleStart} 
-           disabled={!target && !customTarget}
+           disabled={(!target && !customTarget) || (target === 'Push Day' && !pushFocus)}
            className="flex-1 py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 shadow-lg"
          >
            Start Session

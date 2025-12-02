@@ -194,8 +194,53 @@ export const generateWorkoutSession = async (targetMuscle: string, exerciseCount
   try {
     const ai = getClient();
     
+    let distributionLogic = "Ensure a balanced effective workout.";
+
+    // --- SEQUENTIAL LOGIC ENFORCEMENT ---
+    if (targetMuscle.includes("Push Day")) {
+        if (targetMuscle.includes("Chest Focused")) {
+            distributionLogic = `
+                STRICT ORDER REQUIRED:
+                1. Start with CHEST exercises (Compound first, then Isolation).
+                2. THEN perform SHOULDER exercises (Side Delt focus).
+                3. FINISH with TRICEP exercises.
+                DO NOT MIX THE ORDER. Chest -> Shoulders -> Triceps.
+            `;
+        } else if (targetMuscle.includes("Shoulder Focused")) {
+            distributionLogic = `
+                STRICT ORDER REQUIRED:
+                1. Start with SHOULDER exercises (Overhead Press first, then Isolation).
+                2. THEN perform CHEST exercises (Upper Chest / Incline focus).
+                3. FINISH with TRICEP exercises.
+                DO NOT MIX THE ORDER. Shoulders -> Chest -> Triceps.
+            `;
+        } else {
+             // Generic Push
+             distributionLogic = "STRICT ORDER: Chest -> Shoulders -> Triceps.";
+        }
+    } else if (targetMuscle.includes("Pull Day")) {
+        distributionLogic = `
+            STRICT ORDER REQUIRED:
+            1. Start with BACK exercises (Vertical Pulls then Horizontal Rows).
+            2. THEN perform REAR DELT exercises.
+            3. FINISH with BICEP exercises.
+            DO NOT MIX THE ORDER. Back -> Rear Delts -> Biceps.
+        `;
+    } else if (targetMuscle.includes("Legs")) {
+        distributionLogic = `
+            STRICT ORDER REQUIRED:
+            1. Start with Heavy Compounds (Squats/Leg Press).
+            2. THEN Hamstrings/Glutes (RDL/Curls).
+            3. THEN Quad Isolation (Extensions).
+            4. FINISH with Calves.
+        `;
+    }
+
     const prompt = `
       Generate a workout session for: ${targetMuscle}.
+      ${distributionLogic}
+      Provide EXACTLY ${exerciseCount} exercises.
+      
       Return purely valid JSON (no markdown).
       Structure:
       {
@@ -205,7 +250,6 @@ export const generateWorkoutSession = async (targetMuscle: string, exerciseCount
            { "name": "Exercise Name", "targetSets": 3, "targetReps": "10-12", "restTime": "60s" }
         ]
       }
-      Provide EXACTLY ${exerciseCount} effective exercises.
     `;
 
     const response = await ai.models.generateContent({
