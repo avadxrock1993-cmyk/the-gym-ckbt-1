@@ -20,6 +20,7 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
     height: '',
     preference: DietPreference.VEG,
     goal: DietGoal.WEIGHT_LOSS,
+    weightChangeTarget: '',
     excludedFoods: '',
     wakeupTime: '',
     breakfast: '',
@@ -164,7 +165,7 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
         {/* Goal Selection */}
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
           <label className="block text-lg font-bold text-gray-800 mb-3 text-center">Your Goal</label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
              {Object.values(DietGoal).map((goal) => (
                 <label key={goal} className={`
                   flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all text-center text-sm font-bold
@@ -178,6 +179,22 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
                   {goal}
                 </label>
              ))}
+          </div>
+
+          {/* Optional: Target Weight Change */}
+          <div className="border-t pt-3 mt-3">
+            <label className="block text-sm font-bold text-gray-700 mb-1">
+               How much weight to change in 1 month? (kg) <span className="text-gray-500 font-normal ml-1">(Optional)</span>
+            </label>
+            <input 
+              type="number" 
+              name="weightChangeTarget" 
+              value={formData.weightChangeTarget} 
+              onChange={handleChange}
+              className="w-full p-3 bg-white border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" 
+              placeholder="e.g. 2 kg" 
+            />
+            <p className="text-xs text-gray-500 mt-1">We will adjust calories to reach this target.</p>
           </div>
         </div>
 

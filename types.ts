@@ -45,8 +45,9 @@ export interface DietFormData {
   height: string;
   preference: DietPreference;
   goal: DietGoal;
+  weightChangeTarget?: string; // New field for target weight change amount
   healthConditions?: string;
-  excludedFoods?: string; // New field for specific food exclusions
+  excludedFoods?: string;
   wakeupTime?: string;
   breakfast?: string;
   lunch?: string;

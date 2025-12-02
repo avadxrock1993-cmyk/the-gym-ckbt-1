@@ -93,11 +93,16 @@ export const generateDietPlan = async (data: DietFormData, skippedMeals: string[
       ? `EXCLUDED FOODS: ${data.excludedFoods}. CRITICAL: Do NOT include these foods in the plan.`
       : '';
 
+    const weightTargetInstruction = data.weightChangeTarget
+      ? `ONE MONTH TARGET: User wants to change weight by ${data.weightChangeTarget} kg in 1 month. Adjust Calorie Surplus/Deficit aggressively to try and meet this.`
+      : '';
+
     const prompt = `
       ${SYSTEM_INSTRUCTION}
       TYPE: Diet Plan.
       USER: ${data.name}, ${data.gender}, Age ${data.age}, ${data.weight}kg, ${data.height}.
       GOAL: ${data.goal}. PREF: ${data.preference}.
+      ${weightTargetInstruction}
       ${healthInstruction}
       ${excludedFoodsInstruction}
       ROUTINE: ${routineDetails}
