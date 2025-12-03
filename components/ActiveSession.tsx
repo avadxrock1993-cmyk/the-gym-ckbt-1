@@ -10,6 +10,11 @@ interface ActiveSessionProps {
   userWeight?: number; // Added to calculate calories
 }
 
+const BODYWEIGHT_KEYWORDS = [
+  'crunch', 'sit up', 'leg raise', 'plank', 'push up', 'pushup', 'pull up', 'pullup', 'chin up', 
+  'dip', 'burpee', 'jumping', 'mountain climber', 'air squat', 'box jump', 'hollow hold', 'russian twist'
+];
+
 const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, onFinish, onCancel, userWeight = 70 }) => {
   const [session, setSession] = useState<TrackerSession>(initialSession);
   const [currentStep, setCurrentStep] = useState<'warmup' | 'workout' | 'summary'>('warmup');
@@ -49,10 +54,21 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
     localStorage.setItem('current_workout_session', JSON.stringify(session));
   }, [session]);
 
-  // Effect to find previous history for the current exercise
+  // Effect to find previous history for the current exercise AND Auto-Detect Bodyweight
   useEffect(() => {
     if (currentStep !== 'workout' || !hasExercises || !currentExercise.name) return;
 
+    // 1. Auto-fill Bodyweight (0) for specific exercises
+    const exNameLower = currentExercise.name.toLowerCase();
+    const isBodyweight = BODYWEIGHT_KEYWORDS.some(kw => exNameLower.includes(kw));
+    if (isBodyweight) {
+        setWeight('0');
+    } else {
+        setWeight(''); // Reset for weights
+    }
+    setReps('');
+
+    // 2. Find History
     const findPreviousStats = () => {
       try {
         const rawHistory = localStorage.getItem('gym_history');
@@ -82,6 +98,9 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
                 bestWeight = log.weight;
                 bestReps = log.reps;
                 found = true;
+              } else if (log.weight === bestWeight && log.reps > bestReps) {
+                 bestReps = log.reps; // Same weight but more reps
+                 found = true;
               }
             });
           }
@@ -102,15 +121,27 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
   }, [currentExercise.name, currentStep, hasExercises]);
 
   const handleLogSet = () => {
-    if (!weight || !reps) return;
+    if (weight === '' || reps === '') return;
     
     const r = parseInt(reps);
     const w = parseFloat(weight);
     
-    const maxTarget = parseInt(currentExercise.targetReps.split('-')[1] || currentExercise.targetReps);
+    // Safety check
+    if (isNaN(r) || isNaN(w)) return;
+    
+    const maxTarget = parseInt(currentExercise.targetReps.split('-')[1] || currentExercise.targetReps) || 12;
     let suggestion = "Maintain weight.";
-    if (r > maxTarget) suggestion = "Great job! Increase weight by 2.5kg next set.";
-    if (r < maxTarget - 2) suggestion = "Decrease weight slightly to hit target reps.";
+    
+    // Suggestion logic
+    if (w === 0) {
+       // Bodyweight logic
+       if (r > maxTarget + 5) suggestion = "Too easy? Try holding a plate or add resistance.";
+       else if (r < maxTarget - 5) suggestion = "Good effort. Focus on form.";
+    } else {
+       // Weighted logic
+       if (r > maxTarget) suggestion = "Great job! Increase weight by 2.5kg next set.";
+       else if (r < maxTarget - 2) suggestion = "Decrease weight slightly to hit target reps.";
+    }
 
     const newLog: TrackerSetLog = {
       setNumber: currentExercise.logs.length + 1,
@@ -124,17 +155,32 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
         updatedExercises[currentExIndex].logs.push(newLog);
         setSession({ ...session, exercises: updatedExercises });
     }
+    
+    // Clear reps only, keep weight as usually weight stays same for next set
     setReps('');
   };
 
   const calculateCaloriesForExercise = (logs: TrackerSetLog[]) => {
-    // Basic Estimate Formula for Weight Training:
-    // Calories = (Total Volume * 0.0005) + (BodyWeight * 0.05 * NumberOfSets)
-    // This is a rough gamified approximation.
-    const totalVolume = logs.reduce((acc, log) => acc + (log.weight * log.reps), 0);
-    const sets = logs.length;
+    // Calorie Math
+    // If weight > 0: (Volume * 0.0005) + MetabolicCost
+    // If weight == 0: Assume volume uses ~60% of bodyweight for calculation purpose
     
-    const estimatedBurn = (totalVolume * 0.0005) + (userWeight * 0.05 * sets);
+    let totalEstimatedVolume = 0;
+    
+    logs.forEach(log => {
+        if (log.weight > 0) {
+            totalEstimatedVolume += (log.weight * log.reps);
+        } else {
+            // Bodyweight exercise estimate: Lift roughly 60% of bodyweight per rep
+            // This is arbitrary but gives a satisfying number for crunches/pushups
+            totalEstimatedVolume += (userWeight * 0.6 * log.reps);
+        }
+    });
+
+    const sets = logs.length;
+    // Base metabolic cost of performing the set + volume load
+    const estimatedBurn = (totalEstimatedVolume * 0.0005) + (userWeight * 0.05 * sets);
+    
     return Math.round(estimatedBurn);
   };
 
@@ -440,10 +486,19 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
              )}
              
              <div className="flex gap-3 mb-3">
-               <input 
-                 type="number" placeholder="kg" value={weight} onChange={e => setWeight(e.target.value)}
-                 className="w-1/2 p-3 border-2 border-gray-200 focus:border-red-500 focus:outline-none rounded-lg text-lg font-bold text-center"
-               />
+               <div className="w-1/2 relative">
+                   <input 
+                     type="number" placeholder="kg" value={weight} onChange={e => setWeight(e.target.value)}
+                     className="w-full p-3 border-2 border-gray-200 focus:border-red-500 focus:outline-none rounded-lg text-lg font-bold text-center"
+                   />
+                   <button 
+                     onClick={() => setWeight('0')}
+                     className="absolute right-2 top-2 bottom-2 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-bold px-2 rounded"
+                     title="Bodyweight (0kg)"
+                   >
+                     BW
+                   </button>
+               </div>
                <input 
                  type="number" placeholder="reps" value={reps} onChange={e => setReps(e.target.value)}
                  className="w-1/2 p-3 border-2 border-gray-200 focus:border-red-500 focus:outline-none rounded-lg text-lg font-bold text-center"
@@ -451,7 +506,7 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
              </div>
              <button 
                onClick={handleLogSet}
-               disabled={!weight || !reps}
+               disabled={weight === '' || reps === ''}
                className="w-full py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 transition-colors shadow-md active:scale-95 transform"
              >
                ✅ Log Set
