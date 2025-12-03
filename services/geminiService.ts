@@ -7,26 +7,31 @@ const MODEL_NAME = 'gemini-2.5-flash';
 // Instructions for HTML styling and Language detection
 const SYSTEM_INSTRUCTION = `
   CRITICAL INSTRUCTIONS:
-  1. SPEED & BREVITY: GENERATE IMMEDIATELY. Do not output any conversational text like "Here is your plan". Output ONLY the raw HTML.
+  1. FORMATTING: Generate raw HTML with Tailwind CSS.
   
-  2. LANGUAGE MATCHING: Detect user input language (Hindi/English/Hinglish).
-     - Input: "Mera weight 70kg hai" -> Output: Hinglish.
-     - Input: "English" -> Output: English.
-     - MATCH THE TONE EXACTLY.
+  2. TONE & PERSONALITY: 
+     - Use a warm, professional, and MOTIVATING tone (like a personal trainer).
+     - Start with a personalized greeting (e.g., "Namaskar [Name]", "Hello Champion").
+     - Use engaging phrases ("Let's crush this goals", "Believe in yourself").
+     - DETECT LANGUAGE: If input is Hindi/Hinglish, use that for the conversation parts, but keep medical/fitness terms in English.
   
-  3. FORMATTING: Generate raw HTML with Tailwind CSS.
-  
-  4. STYLING (Red/White Theme):
-     - H2: <h2 class="text-2xl font-extrabold text-red-700 mt-6 mb-3 border-l-4 border-red-600 pl-3">
-     - Table Headers: <thead class="bg-red-600 text-white">
-     - Rows: <tr class="hover:bg-red-50">
-  
-  5. TABLES: Use HTML Tables for ALL schedules.
-     <div class="overflow-x-auto my-4 border border-gray-200 rounded-lg">
-       <table class="min-w-full divide-y divide-gray-200">...</table>
-     </div>
+  3. STYLING (Red/White Theme):
+     - Main Container: <div class="space-y-6">
+     - H2 Headers: <h2 class="text-2xl font-extrabold text-red-700 mt-6 mb-3 border-l-4 border-red-600 pl-3 uppercase italic">
+     - Highlight Text: <span class="font-bold text-red-600">
+     - Tables: Use HTML Tables for schedules.
+       <div class="overflow-x-auto my-4 border border-gray-200 rounded-lg shadow-sm">
+         <table class="min-w-full divide-y divide-gray-200">
+           <thead class="bg-red-600 text-white">...</thead>
+           <tbody class="bg-white divide-y divide-gray-200">...</tbody>
+         </table>
+       </div>
 
-  6. CONTENT: NO EMOJIS. NO ICONS. Professional text only.
+  4. CONTENT STRUCTURE:
+     - 🚀 **Personal Note**: A brief encouraging intro.
+     - 📊 **Analysis**: BMR/BMI/Health quick look.
+     - 📅 **The Plan**: The Tables.
+     - 💡 **Coach's Tips**: Hydration, Sleep, Form tips.
 `;
 
 // Helper to check key and get client
@@ -91,7 +96,7 @@ export const generateDietPlan = async (data: DietFormData, skippedMeals: string[
       : '';
 
     const healthInstruction = data.healthConditions 
-      ? `HEALTH CONDITIONS: ${data.healthConditions}. CRITICAL: ANALYZE these issues. Adjust foods accordingly (e.g., Low GI for Diabetes, Iodine for Thyroid, Low Sodium for BP). State the adjustments made.` 
+      ? `HEALTH CONDITIONS: ${data.healthConditions}. CRITICAL: ANALYZE these issues. Adjust foods accordingly (e.g., Low GI for Diabetes, Iodine for Thyroid, Low Sodium for BP). State the adjustments made clearly.` 
       : 'No specific health issues.';
 
     const excludedFoodsInstruction = data.excludedFoods
@@ -114,10 +119,11 @@ export const generateDietPlan = async (data: DietFormData, skippedMeals: string[
       ${skipInstruction}
 
       OUTPUT:
-      1. BMR & TDEE (1 line).
-      2. Health Analysis (If conditions exist, briefly explain changes).
-      3. Meal Table (Time, Meal, Items, Macros). Precise quantities.
-      4. Short Note on Hydration.
+      1. Intro & Motivation.
+      2. BMR & TDEE (1 line).
+      3. Health Analysis (If conditions exist, explain changes in a friendly way).
+      4. Meal Table (Time, Meal, Items, Macros). Precise quantities.
+      5. Hydration & Supplement Note.
     `;
 
     const response = await ai.models.generateContent({
@@ -148,7 +154,7 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
          CURRENT LIFTS: ${lifts}.
          GOAL: Increase 1RM on SBD (Squat, Bench, Deadlift).
          STRATEGY: Use a strength progression (e.g. 5x5, 5/3/1, or percentage based).
-         Focus heavily on compound movements with lower reps and higher rest.
+         Focus heavily on compound movements.
        `;
     } else {
        // Regular Bodybuilding/Fitness instructions
@@ -158,7 +164,7 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
     }
 
     const healthInstruction = data.healthConditions 
-      ? `HEALTH ISSUES: ${data.healthConditions}. CRITICAL: Adjust intensity and exercises to be SAFE (e.g., Avoid heavy overheads for shoulder pain, moderate cardio for BP).` 
+      ? `HEALTH ISSUES: ${data.healthConditions}. CRITICAL: Adjust intensity and exercises to be SAFE (e.g., Avoid heavy overheads for shoulder pain, moderate cardio for BP). Mention this analysis.` 
       : 'No specific health issues.';
 
     const prompt = `
@@ -171,11 +177,12 @@ export const generateWorkoutPlan = async (data: WorkoutFormData): Promise<string
       ${healthInstruction}
 
       OUTPUT:
-      1. Weekly Schedule Table (Day, Muscle Group / Lift).
-      2. Safety Note (If health issues exist).
-      3. Daily Routine Tables (Exercise, Sets, Reps). 
-         ${data.focus === 'Powerlifting' ? '*For Powerlifting, include % of 1RM or RPE if possible.*' : ''}
-      4. Very brief Warmup/Cooldown.
+      1. Personal Encouragement Intro.
+      2. Weekly Schedule Table (Day, Muscle Group / Lift).
+      3. Safety Check (If health issues exist).
+      4. Daily Routine Tables (Exercise, Sets, Reps). 
+         ${data.focus === 'Powerlifting' ? '*For Powerlifting, include % of 1RM or RPE.*' : ''}
+      5. Warmup/Cooldown Advice.
     `;
 
     const response = await ai.models.generateContent({
@@ -263,7 +270,13 @@ export const generateWorkoutSession = async (targetMuscle: string, exerciseCount
     const data = JSON.parse(cleanJson);
     
     // Add empty logs array to each exercise for the frontend to use
-    data.exercises = data.exercises.map((ex: any) => ({ ...ex, logs: [] }));
+    if (data.exercises && Array.isArray(data.exercises)) {
+        data.exercises = data.exercises
+            .filter((ex: any) => ex && ex.name) // Filter out null or missing exercises
+            .map((ex: any) => ({ ...ex, logs: [] }));
+    } else {
+        data.exercises = [];
+    }
     data.startTime = new Date().toISOString();
     
     return data as TrackerSession;
@@ -317,8 +330,9 @@ export const convertHtmlPlanToStructured = async (htmlPlan: string): Promise<Str
       READ this workout plan (HTML string): 
       "${htmlPlan.substring(0, 5000)}" 
       
-      TASK: Extract all the workout days and exercises into a structured JSON format so I can play them in an app.
-      
+      TASK: Extract ALL the workout days and exercises found in the plan.
+      CRITICAL: You must extract EVERY SINGLE DAY mentioned (Day 1, Day 2, Day 3... up to Day 7). Do NOT just return the first day. Return the complete schedule.
+
       Return purely valid JSON (no markdown).
       Structure:
       {
@@ -330,6 +344,11 @@ export const convertHtmlPlanToStructured = async (htmlPlan: string): Promise<Str
             "exercises": [
                { "name": "Bench Press", "targetSets": 3, "targetReps": "10-12", "restTime": "60s" }
             ]
+          },
+          {
+            "dayName": "Day 2 - Back & Biceps",
+            "focus": "Back",
+             "exercises": [...]
           }
         ]
       }
@@ -345,10 +364,19 @@ export const convertHtmlPlanToStructured = async (htmlPlan: string): Promise<Str
     const cleanJson = text.replace(/```json|```/g, '');
     const data = JSON.parse(cleanJson);
     
-    // Ensure logs are initialized
-    data.days.forEach((day: any) => {
-        day.exercises = day.exercises.map((ex: any) => ({ ...ex, logs: [] }));
-    });
+    // Ensure logs are initialized and exercises exists
+    if (data.days && Array.isArray(data.days)) {
+        data.days.forEach((day: any) => {
+            if (!day.exercises || !Array.isArray(day.exercises)) day.exercises = [];
+            
+            // Filter out corrupted exercises and add logs
+            day.exercises = day.exercises
+                .filter((ex: any) => ex && ex.name)
+                .map((ex: any) => ({ ...ex, logs: [] }));
+        });
+    } else {
+        data.days = [];
+    }
     
     return data as StructuredPlan;
 

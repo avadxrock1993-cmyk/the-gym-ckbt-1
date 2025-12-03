@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { TrackerSession, TrackerSetLog, SavedPlan } from '../types';
+import { TrackerSession, TrackerSetLog, SavedPlan, TrackerExercise } from '../types';
 import { generateAlternativeExercise } from '../services/geminiService';
 
 interface ActiveSessionProps {
@@ -22,23 +22,36 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
 
-  // Loading state for skipping
+  // Skip / Replace State
   const [isReplacing, setIsReplacing] = useState(false);
+  const [showSkipMenu, setShowSkipMenu] = useState(false);
+  const [manualExName, setManualExName] = useState('');
 
   // Calorie Calculation State
   const [caloriesBurned, setCaloriesBurned] = useState(0);
   const [lastBurnMsg, setLastBurnMsg] = useState('');
+
+  // --- SAFE GUARD: Ensure exercises exist ---
+  const hasExercises = session.exercises && session.exercises.length > 0;
+  
+  // Fallback exercise object to prevent crash in hooks if array is empty or index invalid
+  const safeExercise = (hasExercises && session.exercises[currentExIndex]) ? session.exercises[currentExIndex] : null;
+  const currentExercise = safeExercise || {
+      name: 'Unknown Exercise',
+      targetSets: 0,
+      targetReps: '-',
+      restTime: '-',
+      logs: [] as TrackerSetLog[]
+  };
 
   // --- AUTO SAVE LOGIC ---
   useEffect(() => {
     localStorage.setItem('current_workout_session', JSON.stringify(session));
   }, [session]);
 
-  const currentExercise = session.exercises[currentExIndex];
-
   // Effect to find previous history for the current exercise
   useEffect(() => {
-    if (currentStep !== 'workout') return;
+    if (currentStep !== 'workout' || !hasExercises || !currentExercise.name) return;
 
     const findPreviousStats = () => {
       try {
@@ -57,11 +70,13 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
 
         trackerSessions.forEach(h => {
           const pastSession = h.content as TrackerSession;
+          if (!pastSession.exercises) return;
+
           const match = pastSession.exercises.find(ex => 
-            ex.name.toLowerCase().trim() === currentExercise.name.toLowerCase().trim()
+            ex && ex.name && ex.name.toLowerCase().trim() === currentExercise.name.toLowerCase().trim()
           );
 
-          if (match && match.logs.length > 0) {
+          if (match && match.logs && match.logs.length > 0) {
             match.logs.forEach(log => {
               if (log.weight > bestWeight) {
                 bestWeight = log.weight;
@@ -84,7 +99,7 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
     };
 
     findPreviousStats();
-  }, [currentExercise.name, currentStep]);
+  }, [currentExercise.name, currentStep, hasExercises]);
 
   const handleLogSet = () => {
     if (!weight || !reps) return;
@@ -105,9 +120,10 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
     };
 
     const updatedExercises = [...session.exercises];
-    updatedExercises[currentExIndex].logs.push(newLog);
-    
-    setSession({ ...session, exercises: updatedExercises });
+    if (updatedExercises[currentExIndex]) {
+        updatedExercises[currentExIndex].logs.push(newLog);
+        setSession({ ...session, exercises: updatedExercises });
+    }
     setReps('');
   };
 
@@ -137,14 +153,13 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
       setWeight('');
       setReps('');
       setPreviousBest(null); 
+      setShowSkipMenu(false);
     } else {
       setCurrentStep('summary');
     }
   };
 
-  const handleSkipExercise = async () => {
-    if (!confirm("Do you want to skip this exercise and find a new one?")) return;
-    
+  const handleAiReplace = async () => {
     setIsReplacing(true);
     try {
       const newExercise = await generateAlternativeExercise(currentExercise.name, session.targetMuscle);
@@ -157,12 +172,35 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
       setReps('');
       setPreviousBest(null);
       alert(`Replaced with: ${newExercise.name}`);
+      setShowSkipMenu(false);
 
     } catch (e) {
       alert("Failed to find alternative. Moving to next.");
-      handleNextExercise();
+      // Don't auto move, just stop loading
     }
     setIsReplacing(false);
+  };
+
+  const handleManualReplace = () => {
+    if (!manualExName.trim()) return;
+
+    const newExercise: TrackerExercise = {
+      name: manualExName,
+      targetSets: currentExercise.targetSets, // Preserve targets
+      targetReps: currentExercise.targetReps,
+      restTime: currentExercise.restTime,
+      logs: []
+    };
+
+    const updatedExercises = [...session.exercises];
+    updatedExercises[currentExIndex] = newExercise;
+    
+    setSession({ ...session, exercises: updatedExercises });
+    setWeight('');
+    setReps('');
+    setPreviousBest(null);
+    setManualExName('');
+    setShowSkipMenu(false);
   };
 
   const handleManualExit = () => {
@@ -170,6 +208,22 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
           onCancel();
       }
   };
+
+  // --- RENDER ERROR IF DATA INVALID ---
+  if (!hasExercises) {
+    return (
+      <div className="bg-white p-8 rounded-xl shadow-lg text-center flex flex-col items-center justify-center min-h-[300px]">
+        <h2 className="text-2xl font-black text-red-600 mb-2">Error Loading Workout</h2>
+        <p className="text-gray-600 mb-6">No exercises were found for this session. The generated plan might be empty.</p>
+        <button 
+          onClick={onCancel}
+          className="bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   if (currentStep === 'warmup') {
     return (
@@ -184,12 +238,16 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
 
         <h2 className="text-2xl font-black text-gray-900 mb-4 uppercase">Warmup Routine</h2>
         <div className="space-y-3 mb-6 flex-grow">
-          {session.warmup.map((act, idx) => (
-             <div key={idx} className="flex items-center p-3 bg-yellow-50 rounded-lg">
-                <input type="checkbox" className="w-5 h-5 accent-yellow-600 mr-3" />
-                <span className="font-semibold text-gray-800">{act}</span>
-             </div>
-          ))}
+          {session.warmup && session.warmup.length > 0 ? (
+             session.warmup.map((act, idx) => (
+               <div key={idx} className="flex items-center p-3 bg-yellow-50 rounded-lg">
+                  <input type="checkbox" className="w-5 h-5 accent-yellow-600 mr-3" />
+                  <span className="font-semibold text-gray-800">{act}</span>
+               </div>
+             ))
+          ) : (
+             <div className="p-4 bg-gray-50 text-gray-500 italic rounded">5-10 mins of Light Cardio & Dynamic Stretching</div>
+          )}
         </div>
         <div className="mt-auto space-y-3">
             <button 
@@ -318,19 +376,68 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
            )}
         </div>
 
+        {/* SKIP / REPLACE MENU */}
+        {showSkipMenu && (
+            <div className="mb-4 bg-orange-50 p-4 rounded-xl border-2 border-orange-200 animate-fadeIn">
+                <h4 className="font-bold text-orange-800 mb-3 text-sm uppercase">Replace Exercise</h4>
+                
+                <div className="flex gap-2 mb-4">
+                    <button 
+                        onClick={handleAiReplace}
+                        disabled={isReplacing}
+                        className="flex-1 py-2 bg-orange-200 text-orange-800 font-bold rounded-lg hover:bg-orange-300 text-sm"
+                    >
+                        {isReplacing ? 'Asking AI...' : '🤖 Ask AI Suggestion'}
+                    </button>
+                </div>
+                
+                <div className="relative flex py-2 items-center">
+                    <div className="flex-grow border-t border-orange-200"></div>
+                    <span className="flex-shrink-0 mx-4 text-orange-400 text-xs font-bold uppercase">OR Type Manual</span>
+                    <div className="flex-grow border-t border-orange-200"></div>
+                </div>
+
+                <div className="mt-2">
+                    <input 
+                        type="text"
+                        placeholder="Type Exercise Name..."
+                        value={manualExName}
+                        onChange={(e) => setManualExName(e.target.value)}
+                        className="w-full p-2 border border-orange-300 rounded mb-2 text-sm focus:outline-none focus:border-orange-500"
+                    />
+                    <div className="flex gap-2">
+                        <button 
+                             onClick={() => setShowSkipMenu(false)}
+                             className="flex-1 py-2 bg-white text-gray-500 font-bold rounded-lg border border-gray-300 text-sm"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                             onClick={handleManualReplace}
+                             disabled={!manualExName.trim()}
+                             className="flex-1 py-2 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm"
+                        >
+                            Use Custom
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* Input Area */}
         {currentExercise.logs.length < currentExercise.targetSets ? (
           <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-auto">
-             <div className="flex justify-between items-center mb-2">
-                <p className="text-sm font-bold text-gray-700">Log Set {currentExercise.logs.length + 1}</p>
-                <button 
-                  onClick={handleSkipExercise}
-                  disabled={isReplacing}
-                  className="text-xs text-red-500 font-bold hover:underline disabled:text-gray-400"
-                >
-                  {isReplacing ? 'Finding new exercise...' : 'Skip & Find New →'}
-                </button>
-             </div>
+             {!showSkipMenu && (
+                <div className="flex justify-between items-center mb-2">
+                    <p className="text-sm font-bold text-gray-700">Log Set {currentExercise.logs.length + 1}</p>
+                    <button 
+                    onClick={() => setShowSkipMenu(true)}
+                    className="text-xs text-red-500 font-bold hover:underline"
+                    >
+                    Skip / Replace ↻
+                    </button>
+                </div>
+             )}
              
              <div className="flex gap-3 mb-3">
                <input 
