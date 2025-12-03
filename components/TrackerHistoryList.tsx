@@ -10,6 +10,7 @@ interface TrackerHistoryListProps {
 const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewSession }) => {
   const [groupedHistory, setGroupedHistory] = useState<Record<string, SavedPlan[]>>({});
   const [isEmpty, setIsEmpty] = useState(true);
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
   useEffect(() => {
     const raw = localStorage.getItem('gym_history');
@@ -23,6 +24,10 @@ const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewS
             setIsEmpty(false);
             const grouped = groupSessionsByDate(sessionsOnly);
             setGroupedHistory(grouped);
+            
+            // Auto-expand the first date (usually Today/most recent)
+            const firstKey = Object.keys(grouped)[0];
+            if (firstKey) setExpandedDate(firstKey);
         } else {
             setIsEmpty(true);
         }
@@ -80,6 +85,14 @@ const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewS
     }
   };
 
+  const toggleDate = (dateKey: string) => {
+    if (expandedDate === dateKey) {
+        setExpandedDate(null);
+    } else {
+        setExpandedDate(dateKey);
+    }
+  };
+
   const getMuscleColor = (title: string) => {
      const t = title.toLowerCase();
      if (t.includes('chest') || t.includes('push')) return 'bg-red-100 text-red-700 border-red-200';
@@ -99,7 +112,7 @@ const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewS
           <h2 className="text-3xl font-black uppercase italic tracking-tighter text-white">
             THE GYM <span className="text-red-500">LOGS</span>
           </h2>
-          <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-1">Your Training Journal</p>
+          <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-1">Daily Records</p>
         </div>
         <button onClick={onBack} className="relative z-10 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors backdrop-blur-sm border border-white/10">
           ← Back
@@ -108,85 +121,102 @@ const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewS
 
       {isEmpty ? (
         <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-gray-200">
-          <div className="text-6xl mb-4 opacity-20">🏋️‍♂️</div>
-          <p className="text-gray-500 font-bold text-lg">No workouts recorded yet.</p>
-          <p className="text-sm text-gray-400 mt-2 max-w-xs mx-auto">Complete a session in the Tracker to start building your legacy.</p>
+          <div className="text-6xl mb-4 opacity-20">📅</div>
+          <p className="text-gray-500 font-bold text-lg">No history found.</p>
+          <p className="text-sm text-gray-400 mt-2 max-w-xs mx-auto">Your completed workouts will appear here date-wise.</p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {Object.keys(groupedHistory).map((dateKey) => (
-            <div key={dateKey} className="animate-slideIn">
-              {/* Date Header */}
-              <h3 className="text-sm font-extrabold text-gray-400 uppercase tracking-wider mb-4 pl-2 border-l-4 border-red-500">
-                {dateKey}
-              </h3>
-              
-              <div className="space-y-4">
-                {groupedHistory[dateKey].map((item) => {
-                   const session = item.content as TrackerSession;
-                   const totalExercises = session.exercises ? session.exercises.length : 0;
-                   // Calculate total sets performed (only logs that exist)
-                   const setsCompleted = session.exercises ? session.exercises.reduce((acc, ex) => acc + (ex.logs ? ex.logs.length : 0), 0) : 0;
-                   const startTime = new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                   return (
+        <div className="space-y-4">
+          {Object.keys(groupedHistory).map((dateKey) => {
+             const sessions = groupedHistory[dateKey];
+             const isExpanded = expandedDate === dateKey;
+             const totalWorkouts = sessions.length;
+             
+             return (
+                <div key={dateKey} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    {/* Date Tile Header - Clickable */}
                     <div 
-                      key={item.id}
-                      onClick={() => onViewSession(session)}
-                      className="bg-white rounded-xl shadow-sm border border-gray-100 hover:border-red-500 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+                        onClick={() => toggleDate(dateKey)}
+                        className={`p-5 flex justify-between items-center cursor-pointer transition-colors border-l-4 ${isExpanded ? 'bg-red-50 border-red-600' : 'bg-white hover:bg-gray-50 border-gray-300'}`}
                     >
-                      <div className="p-5 flex justify-between items-start">
-                        <div className="flex-1">
-                            {/* Title & Time */}
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="text-xs font-bold text-gray-400">{startTime}</span>
-                                <div className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide ${getMuscleColor(item.title)}`}>
-                                    {item.title}
-                                </div>
-                            </div>
-                            
-                            <h3 className="font-black text-gray-900 text-xl uppercase tracking-tight mb-4 group-hover:text-red-600 transition-colors">
-                              {item.title} Workout
-                            </h3>
-
-                            {/* Stats Grid */}
-                            <div className="flex gap-4">
-                                <div>
-                                    <p className="text-[10px] text-gray-400 uppercase font-bold">Exercises</p>
-                                    <p className="text-lg font-black text-gray-800">{totalExercises}</p>
-                                </div>
-                                <div className="w-px bg-gray-100"></div>
-                                <div>
-                                    <p className="text-[10px] text-gray-400 uppercase font-bold">Total Sets</p>
-                                    <p className="text-lg font-black text-gray-800">{setsCompleted}</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="flex flex-col items-end gap-2">
-                            <button 
-                                onClick={(e) => handleDelete(item.id, e)}
-                                className="text-gray-300 hover:text-red-500 p-2 transition-colors rounded-full hover:bg-red-50"
-                                title="Delete Log"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                    <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                                </svg>
-                            </button>
-                            <div className="mt-auto opacity-0 group-hover:opacity-100 transition-opacity text-red-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                                    <path fillRule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z"/>
+                        <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-lg ${isExpanded ? 'bg-red-200 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
                                 </svg>
                             </div>
+                            <div>
+                                <h3 className={`font-black text-lg uppercase tracking-tight ${isExpanded ? 'text-red-700' : 'text-gray-800'}`}>
+                                    {dateKey}
+                                </h3>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                                    {totalWorkouts} {totalWorkouts === 1 ? 'Session' : 'Sessions'} Recorded
+                                </p>
+                            </div>
                         </div>
-                      </div>
+                        <div className={`transform transition-transform ${isExpanded ? 'rotate-180 text-red-600' : 'text-gray-400'}`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                        </div>
                     </div>
-                   );
-                })}
-              </div>
-            </div>
-          ))}
+
+                    {/* Expandable Content (Workout List) */}
+                    {isExpanded && (
+                        <div className="bg-gray-50 p-4 space-y-3 border-t border-gray-100 animate-fadeIn">
+                             {sessions.map((item) => {
+                                const session = item.content as TrackerSession;
+                                const setsCompleted = session.exercises ? session.exercises.reduce((acc, ex) => acc + (ex.logs ? ex.logs.length : 0), 0) : 0;
+                                const startTime = new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                                return (
+                                    <div 
+                                      key={item.id}
+                                      onClick={() => onViewSession(session)}
+                                      className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-red-300 cursor-pointer flex justify-between items-center group transition-all"
+                                    >
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide ${getMuscleColor(item.title)}`}>
+                                                    {item.title}
+                                                </span>
+                                                <span className="text-xs text-gray-400 font-bold">• {startTime}</span>
+                                            </div>
+                                            <div className="flex gap-4 mt-2">
+                                                <div>
+                                                    <span className="text-gray-400 text-[10px] font-bold uppercase block">Exercises</span>
+                                                    <span className="font-bold text-gray-800">{session.exercises?.length || 0}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-400 text-[10px] font-bold uppercase block">Total Sets</span>
+                                                    <span className="font-bold text-gray-800">{setsCompleted}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3">
+                                             <button 
+                                                onClick={(e) => handleDelete(item.id, e)}
+                                                className="text-gray-300 hover:text-red-500 p-2 rounded-full hover:bg-gray-100"
+                                                title="Delete"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                                    <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                                </svg>
+                                            </button>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" className="text-gray-300 group-hover:text-red-600 transition-colors" fill="currentColor" viewBox="0 0 16 16">
+                                                <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                );
+                             })}
+                        </div>
+                    )}
+                </div>
+             );
+          })}
         </div>
       )}
     </div>
