@@ -277,35 +277,37 @@ const DietForm: React.FC<DietFormProps> = ({ onSubmit, onCancel }) => {
 
         {/* Optional Daily Routine */}
         <div>
-          <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Daily Routine <span className="text-sm font-normal text-gray-500 ml-2">(Optional)</span></h3>
+          <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Daily Routine & Current Meals <span className="text-sm font-normal text-gray-500 ml-2">(Optional)</span></h3>
+          <p className="text-xs text-gray-500 mb-4 bg-gray-50 p-2 rounded">Tell us about your current habits. <br/><strong>Note:</strong> For meals, please specify <strong>WHAT</strong> you eat (e.g., "Roti & Dal"), not just the time.</p>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase">Wakeup Time</label>
-              <input type="text" name="wakeupTime" value={formData.wakeupTime} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. 7:00 AM" />
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Wakeup Time</label>
+              <input type="text" name="wakeupTime" value={formData.wakeupTime} onChange={handleChange} className="w-full p-3 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. 7:00 AM" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase">Breakfast</label>
-              <input type="text" name="breakfast" value={formData.breakfast} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="Current breakfast" />
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Breakfast (Food Items)</label>
+              <input type="text" name="breakfast" value={formData.breakfast} onChange={handleChange} className="w-full p-3 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. Poha, 2 Eggs, Tea" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase">Lunch</label>
-              <input type="text" name="lunch" value={formData.lunch} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="Current lunch" />
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Lunch (Food Items)</label>
+              <input type="text" name="lunch" value={formData.lunch} onChange={handleChange} className="w-full p-3 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. 3 Roti, Dal, Rice" />
             </div>
              <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase">Evening Snacks</label>
-              <input type="text" name="eveningSnack" value={formData.eveningSnack} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="Tea/Coffee etc." />
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Evening Snacks</label>
+              <input type="text" name="eveningSnack" value={formData.eveningSnack} onChange={handleChange} className="w-full p-3 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. Biscuits, Coffee" />
             </div>
              <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase">Post Workout Meal</label>
-              <input type="text" name="postWorkout" value={formData.postWorkout} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="Shake/Eggs etc." />
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Post Workout Meal</label>
+              <input type="text" name="postWorkout" value={formData.postWorkout} onChange={handleChange} className="w-full p-3 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. Protein Shake, Banana" />
             </div>
              <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase">Dinner</label>
-              <input type="text" name="dinner" value={formData.dinner} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="Current dinner" />
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Dinner (Food Items)</label>
+              <input type="text" name="dinner" value={formData.dinner} onChange={handleChange} className="w-full p-3 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. 2 Roti, Sabzi" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase">Sleep Time</label>
-              <input type="text" name="sleepTime" value={formData.sleepTime} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. 10:30 PM" />
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Sleep Time</label>
+              <input type="text" name="sleepTime" value={formData.sleepTime} onChange={handleChange} className="w-full p-3 bg-gray-50 border rounded focus:border-red-500 focus:outline-none" placeholder="e.g. 10:30 PM" />
             </div>
           </div>
         </div>

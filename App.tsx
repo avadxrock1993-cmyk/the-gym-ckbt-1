@@ -345,6 +345,7 @@ const App: React.FC = () => {
       <Header 
         onHomeClick={() => navigate('home')} 
         onTrackerClick={() => navigate('tracker-setup')}
+        onLogsClick={() => navigate('tracker-history-list')} // PASSING LOGS NAVIGATOR
         onHistoryClick={() => navigate('history')}
       />
       <main className="flex-grow flex flex-col items-center p-4">

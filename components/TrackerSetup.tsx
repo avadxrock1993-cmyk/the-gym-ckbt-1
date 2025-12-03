@@ -67,13 +67,6 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel, o
             THE GYM <span className="text-gray-900">CKBT</span>
          </h1>
          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">AI Personal Trainer</p>
-         
-         <button 
-           onClick={onViewHistory}
-           className="absolute top-0 right-0 text-xs font-bold text-gray-400 hover:text-red-600 uppercase border border-gray-200 px-2 py-1 rounded hover:border-red-300 transition-colors"
-         >
-           📜 Logs
-         </button>
       </div>
 
       <h2 className="text-2xl font-extrabold text-gray-900 mb-2 text-center">Start Live Workout</h2>
@@ -147,20 +140,22 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel, o
         />
       </div>
 
-      <div className="flex gap-4 flex-col md:flex-row">
-         <button onClick={onViewHistory} className="py-3 px-4 text-red-600 font-bold bg-white border-2 border-red-100 rounded-lg hover:bg-red-50 transition-colors">
-            View Past Workouts
-         </button>
-         <div className="flex gap-4 flex-1">
-            <button onClick={onCancel} className="flex-1 py-3 text-gray-600 font-bold bg-gray-100 rounded-lg">Cancel</button>
+      <div className="flex gap-4 flex-col">
+         <div className="flex gap-4">
+            <button onClick={onCancel} className="flex-1 py-3 text-gray-600 font-bold bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
             <button 
               onClick={handleStart} 
               disabled={(!target && !customTarget) || (target === 'Push Day' && !pushFocus)}
-              className="flex-1 py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 shadow-lg"
+              className="flex-[2] py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 shadow-lg"
             >
               Start Session
             </button>
          </div>
+         
+         {/* Enhanced Log Button */}
+         <button onClick={onViewHistory} className="w-full py-3 mt-2 text-red-600 font-bold bg-white border-2 border-red-100 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+            <span>📜</span> View Workout Logs
+         </button>
       </div>
     </div>
   );
