@@ -7,9 +7,10 @@ interface ActiveSessionProps {
   session: TrackerSession;
   onFinish: (session: TrackerSession) => void;
   onCancel: () => void;
+  userWeight?: number; // Added to calculate calories
 }
 
-const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, onFinish, onCancel }) => {
+const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, onFinish, onCancel, userWeight = 70 }) => {
   const [session, setSession] = useState<TrackerSession>(initialSession);
   const [currentStep, setCurrentStep] = useState<'warmup' | 'workout' | 'summary'>('warmup');
   const [currentExIndex, setCurrentExIndex] = useState(0);
@@ -24,10 +25,12 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
   // Loading state for skipping
   const [isReplacing, setIsReplacing] = useState(false);
 
+  // Calorie Calculation State
+  const [caloriesBurned, setCaloriesBurned] = useState(0);
+  const [lastBurnMsg, setLastBurnMsg] = useState('');
+
   // --- AUTO SAVE LOGIC ---
   useEffect(() => {
-    // Save to localStorage whenever session state changes
-    // This ensures data persists on refresh/internet loss
     localStorage.setItem('current_workout_session', JSON.stringify(session));
   }, [session]);
 
@@ -105,11 +108,30 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
     updatedExercises[currentExIndex].logs.push(newLog);
     
     setSession({ ...session, exercises: updatedExercises });
-    
     setReps('');
   };
 
+  const calculateCaloriesForExercise = (logs: TrackerSetLog[]) => {
+    // Basic Estimate Formula for Weight Training:
+    // Calories = (Total Volume * 0.0005) + (BodyWeight * 0.05 * NumberOfSets)
+    // This is a rough gamified approximation.
+    const totalVolume = logs.reduce((acc, log) => acc + (log.weight * log.reps), 0);
+    const sets = logs.length;
+    
+    const estimatedBurn = (totalVolume * 0.0005) + (userWeight * 0.05 * sets);
+    return Math.round(estimatedBurn);
+  };
+
   const handleNextExercise = () => {
+    // Calculate Calories for the finished exercise
+    const burned = calculateCaloriesForExercise(currentExercise.logs);
+    setCaloriesBurned(prev => prev + burned);
+    
+    if (burned > 0) {
+        setLastBurnMsg(`🔥 Amazing! You burned approx ${burned} calories on ${currentExercise.name}!`);
+        setTimeout(() => setLastBurnMsg(''), 4000);
+    }
+
     if (currentExIndex < session.exercises.length - 1) {
       setCurrentExIndex(prev => prev + 1);
       setWeight('');
@@ -145,7 +167,6 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
 
   const handleManualExit = () => {
       if (confirm("Are you sure you want to exit? Your progress so far is saved temporarily, but ending now will lose unsaved progress if you don't return.")) {
-          // Clean up handled by parent if needed, but App.tsx handles the actual storage clear on route change
           onCancel();
       }
   };
@@ -200,7 +221,12 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
         </div>
 
         <h2 className="text-3xl font-black text-green-600 mb-2">WORKOUT COMPLETE!</h2>
-        <p className="text-gray-500 mb-6">Great session. Here is what you did:</p>
+        <p className="text-gray-500 mb-2">Great session. Here is what you did:</p>
+        
+        <div className="bg-red-50 p-4 rounded-xl border border-red-100 mb-6">
+             <p className="text-red-800 font-bold text-sm uppercase">Total Est. Calories Burned</p>
+             <p className="text-4xl font-black text-red-600">{caloriesBurned} 🔥</p>
+        </div>
         
         <div className="text-left space-y-4 mb-8">
           {session.exercises.map((ex, idx) => (
@@ -223,7 +249,15 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
 
   // Workout View
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col min-h-[500px]">
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col min-h-[500px] relative">
+      
+      {/* Toast Notification for Calories */}
+      {lastBurnMsg && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-full shadow-xl animate-fadeIn z-50 whitespace-nowrap">
+           {lastBurnMsg}
+        </div>
+      )}
+
       {/* Header with Branding */}
       <div className="bg-gray-900 text-white p-3 shadow-md z-10">
         <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-2">

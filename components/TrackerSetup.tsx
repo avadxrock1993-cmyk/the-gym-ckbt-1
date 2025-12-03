@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { SavedPlan, TrackerSession } from '../types';
+import { SavedPlan } from '../types';
 
 interface TrackerSetupProps {
   onStartSession: (muscle: string, exerciseCount: number) => void;
   onCancel: () => void;
+  onViewHistory: () => void; // New prop for navigation
 }
 
-const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel }) => {
+const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel, onViewHistory }) => {
   const [target, setTarget] = useState('');
   const [customTarget, setCustomTarget] = useState('');
   const [exerciseCount, setExerciseCount] = useState(6);
@@ -18,16 +19,14 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
 
   const COMMON_TARGETS = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Abs', 'Push Day', 'Pull Day'];
 
-  // Check history when component mounts to find last Push Day preference
   useEffect(() => {
     try {
       const rawHistory = localStorage.getItem('gym_history');
       if (rawHistory) {
         const history: SavedPlan[] = JSON.parse(rawHistory);
-        // Filter for tracker sessions that are "Push Day"
         const pushSessions = history
           .filter(h => h.type === 'tracker' && h.title.includes('Push Day'))
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Newest first
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         if (pushSessions.length > 0) {
           const lastSessionTitle = pushSessions[0].title;
@@ -46,17 +45,14 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
   const handleTargetClick = (t: string) => {
     setTarget(t);
     setCustomTarget('');
-    setPushFocus(null); // Reset sub-selection
+    setPushFocus(null);
   };
 
   const handleStart = () => {
     let finalTarget = customTarget || target;
-    
-    // Append sub-focus for Push Day
     if (finalTarget === 'Push Day' && pushFocus) {
       finalTarget = `Push Day (${pushFocus} Focused)`;
     }
-
     if (finalTarget) {
       onStartSession(finalTarget, exerciseCount);
     }
@@ -66,11 +62,18 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
     <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-red-600 animate-fadeIn">
       
       {/* Branding Header */}
-      <div className="text-center mb-6 border-b border-gray-100 pb-4">
+      <div className="text-center mb-6 border-b border-gray-100 pb-4 relative">
          <h1 className="text-3xl font-black text-red-600 tracking-tighter uppercase italic">
             THE GYM <span className="text-gray-900">CKBT</span>
          </h1>
          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">AI Personal Trainer</p>
+         
+         <button 
+           onClick={onViewHistory}
+           className="absolute top-0 right-0 text-xs font-bold text-gray-400 hover:text-red-600 uppercase border border-gray-200 px-2 py-1 rounded hover:border-red-300 transition-colors"
+         >
+           📜 Logs
+         </button>
       </div>
 
       <h2 className="text-2xl font-extrabold text-gray-900 mb-2 text-center">Start Live Workout</h2>
@@ -116,9 +119,6 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
               )}
             </button>
           </div>
-          <p className="text-xs text-center text-gray-500 mt-2">
-            {pushFocus === 'Chest' ? 'Plan: 3-4 Chest, 1-2 Shoulder, 2-3 Tricep' : pushFocus === 'Shoulder' ? 'Plan: 3-4 Shoulder, 1-2 Chest, 2-3 Tricep' : 'Select a focus to continue'}
-          </p>
         </div>
       )}
 
@@ -133,7 +133,6 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
         />
       </div>
 
-      {/* Exercise Count Selection */}
       <div className="mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
         <div className="flex justify-between items-center mb-2">
            <label className="block text-sm font-bold text-gray-800">Number of Exercises</label>
@@ -146,22 +145,22 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel })
           onChange={(e) => setExerciseCount(parseInt(e.target.value))}
           className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-red-600"
         />
-        <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
-           <span>3 (Quick)</span>
-           <span>6 (Standard)</span>
-           <span>8 (Intense)</span>
-        </div>
       </div>
 
-      <div className="flex gap-4">
-         <button onClick={onCancel} className="flex-1 py-3 text-gray-600 font-bold bg-gray-100 rounded-lg">Cancel</button>
-         <button 
-           onClick={handleStart} 
-           disabled={(!target && !customTarget) || (target === 'Push Day' && !pushFocus)}
-           className="flex-1 py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 shadow-lg"
-         >
-           Start Session
+      <div className="flex gap-4 flex-col md:flex-row">
+         <button onClick={onViewHistory} className="py-3 px-4 text-red-600 font-bold bg-white border-2 border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+            View Past Workouts
          </button>
+         <div className="flex gap-4 flex-1">
+            <button onClick={onCancel} className="flex-1 py-3 text-gray-600 font-bold bg-gray-100 rounded-lg">Cancel</button>
+            <button 
+              onClick={handleStart} 
+              disabled={(!target && !customTarget) || (target === 'Push Day' && !pushFocus)}
+              className="flex-1 py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 shadow-lg"
+            >
+              Start Session
+            </button>
+         </div>
       </div>
     </div>
   );

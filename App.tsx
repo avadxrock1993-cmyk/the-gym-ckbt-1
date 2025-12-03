@@ -9,11 +9,13 @@ import TrackerSetup from './components/TrackerSetup';
 import ActiveSession from './components/ActiveSession';
 import HistoryView from './components/HistoryView';
 import TrackerHistoryDetails from './components/TrackerHistoryDetails';
-import { DietFormData, WorkoutFormData, TrackerSession, SavedPlan } from './types';
-import { generateDietPlan, generateWorkoutPlan, generateWorkoutSession } from './services/geminiService';
+import TrackerHistoryList from './components/TrackerHistoryList';
+import PlanDaySelector from './components/PlanDaySelector'; // NEW
+import { DietFormData, WorkoutFormData, TrackerSession, SavedPlan, StructuredPlan, StructuredDay } from './types';
+import { generateDietPlan, generateWorkoutPlan, generateWorkoutSession, convertHtmlPlanToStructured } from './services/geminiService';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout' | 'tracker-setup' | 'tracker-active' | 'history' | 'tracker-details'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout' | 'tracker-setup' | 'tracker-active' | 'history' | 'tracker-history-list' | 'tracker-details' | 'plan-day-selector'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
   const [lastDietData, setLastDietData] = useState<DietFormData | null>(null);
@@ -22,76 +24,56 @@ const App: React.FC = () => {
   // Tracker State
   const [activeSession, setActiveSession] = useState<TrackerSession | null>(null);
   const [selectedHistorySession, setSelectedHistorySession] = useState<TrackerSession | null>(null);
+  
+  // Parsed Plan State (for Follow Plan feature)
+  const [parsedPlan, setParsedPlan] = useState<StructuredPlan | null>(null);
 
-  // --- SESSION RESTORATION LOGIC ---
   useEffect(() => {
-    // 1. Check if there is an active crashed/interrupted session in storage
     const savedInterruptedSession = localStorage.getItem('current_workout_session');
-    
     if (savedInterruptedSession) {
       try {
         const parsedSession = JSON.parse(savedInterruptedSession);
-        // Restore session and go to active view
         setActiveSession(parsedSession);
         setCurrentView('tracker-active');
-        // Update history state so back button works nicely
         window.history.replaceState({ view: 'tracker-active' }, '');
       } catch (e) {
-        console.error("Failed to restore session", e);
         localStorage.removeItem('current_workout_session');
       }
     }
   }, []);
 
-  // Handle Mobile Back Button
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.view) {
-        // If user tries to go back FROM tracker-active, warn them or handle logic
         if (currentView === 'tracker-active' && event.state.view !== 'tracker-active') {
            const confirmExit = window.confirm("Workout in progress! Going back will pause/exit. Are you sure?");
            if (!confirmExit) {
-             // Push state back to prevent navigation
              window.history.pushState({ view: 'tracker-active' }, '');
              return;
            } else {
-             // If they confirm, clear the temp storage
              localStorage.removeItem('current_workout_session');
            }
         }
-
         setCurrentView(event.state.view);
-        if (event.state.view === 'home') {
-          setGeneratedPlan(null);
-          setActiveSession(null);
-          setSelectedHistorySession(null);
-        }
       } else {
         setCurrentView('home');
-        setGeneratedPlan(null);
-        setActiveSession(null);
-        setSelectedHistorySession(null);
       }
     };
-
     window.addEventListener('popstate', handlePopState);
-    // Initial state logic handled in mount effect
     return () => window.removeEventListener('popstate', handlePopState);
   }, [currentView]);
 
   const navigate = (view: typeof currentView) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    // Safety check if leaving active session
     if (currentView === 'tracker-active' && view !== 'tracker-active') {
        localStorage.removeItem('current_workout_session');
     }
-
     setCurrentView(view);
     if (view === 'home') {
       setGeneratedPlan(null);
       setActiveSession(null);
       setSelectedHistorySession(null);
+      setParsedPlan(null);
     }
     window.history.pushState({ view }, '');
   };
@@ -102,9 +84,7 @@ const App: React.FC = () => {
     try {
         history = existing ? JSON.parse(existing) : [];
         if (!Array.isArray(history)) history = [];
-    } catch (e) {
-        history = [];
-    }
+    } catch (e) { history = []; }
 
     const historyItem: SavedPlan = {
       id: Date.now().toString(),
@@ -113,11 +93,10 @@ const App: React.FC = () => {
       title,
       content
     };
-    
     try {
         localStorage.setItem('gym_history', JSON.stringify([historyItem, ...history]));
     } catch (e) {
-        alert("Storage Full! Could not save history. Please delete old items.");
+        alert("Storage Full! Could not save history.");
     }
   };
 
@@ -148,23 +127,45 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
-  // Tracker Handlers
   const handleStartTracker = async (muscle: string, exerciseCount: number) => {
     setIsLoading(true);
     try {
       const session = await generateWorkoutSession(muscle, exerciseCount);
       setActiveSession(session);
-      // Immediately save to temp storage
       localStorage.setItem('current_workout_session', JSON.stringify(session));
       navigate('tracker-active');
     } catch (e) {
-      alert("Failed to create session. Please check connection.");
+      alert("Failed to create session.");
+    }
+    setIsLoading(false);
+  };
+  
+  const handleFollowPlan = async () => {
+    if (!generatedPlan) return;
+    setIsLoading(true);
+    try {
+       const structured = await convertHtmlPlanToStructured(generatedPlan);
+       setParsedPlan(structured);
+       navigate('plan-day-selector');
+    } catch (e) {
+       alert("Could not read plan structure. Please try generating a new plan.");
     }
     setIsLoading(false);
   };
 
+  const handleStartStructuredDay = (day: StructuredDay) => {
+    const session: TrackerSession = {
+       targetMuscle: day.focus || day.dayName,
+       warmup: ["5 mins Treadmill/Cycle", "Dynamic Stretching", "Arm Circles", "Torso Twists"], // Default warmup
+       exercises: day.exercises,
+       startTime: new Date().toISOString()
+    };
+    setActiveSession(session);
+    localStorage.setItem('current_workout_session', JSON.stringify(session));
+    navigate('tracker-active');
+  };
+
   const handleFinishSession = (session: TrackerSession) => {
-    // 1. Save to permanent history
     const existing = localStorage.getItem('gym_history');
     let history: SavedPlan[] = [];
     try {
@@ -182,29 +183,23 @@ const App: React.FC = () => {
     
     try {
         localStorage.setItem('gym_history', JSON.stringify([historyItem, ...history]));
-        
-        // 2. CLEAR the temp interrupted session
         localStorage.removeItem('current_workout_session');
-        
-        alert("Workout Saved to History! 💪");
+        alert("Workout Saved to Logs! 💪");
         navigate('home');
     } catch (e) {
-        alert("Storage Full! Could not save workout.");
+        alert("Storage Full!");
     }
   };
 
   const handleViewSavedPlan = (plan: SavedPlan) => {
-    if (plan.type === 'tracker') {
-      setSelectedHistorySession(plan.content as TrackerSession);
-      navigate('tracker-details');
-      return; 
-    }
+    // This function handles plans from the MAIN history (Diet/Workout only)
     setGeneratedPlan(plan.content as string);
-    if (plan.type === 'diet') {
-      setCurrentView('diet');
-    } else {
-      setCurrentView('workout');
-    }
+    setCurrentView(plan.type === 'diet' ? 'diet' : 'workout');
+  };
+  
+  const handleViewTrackerSession = (session: TrackerSession) => {
+    setSelectedHistorySession(session);
+    navigate('tracker-details');
   };
 
   const handleRepeatSession = (oldSession: TrackerSession) => {
@@ -217,32 +212,21 @@ const App: React.FC = () => {
     localStorage.setItem('current_workout_session', JSON.stringify(newSession));
     navigate('tracker-active');
   };
-
-  const handleCrossNavigate = (target: 'diet' | 'workout') => {
-    setGeneratedPlan(null);
-    navigate(target);
+  
+  // Get user weight for calorie calculation
+  const getUserWeight = () => {
+    if (lastDietData?.weight) return parseFloat(lastDietData.weight);
+    // Rough estimate if not available in current session
+    return 70;
   };
 
   const renderContent = () => {
     if (isLoading) {
-      let userName = '';
-      let userGoal = '';
-
-      if (currentView === 'diet' && lastDietData) {
-        userName = lastDietData.name;
-        userGoal = lastDietData.goal;
-      } else if (currentView === 'workout' && lastWorkoutData) {
-        userName = lastWorkoutData.name;
-        userGoal = `${lastWorkoutData.focus} Focus`;
-      } else if (currentView === 'tracker-setup') {
-        userGoal = "Preparing AI Session...";
-      }
-
       return (
         <LoadingSpinner 
-          message={currentView === 'tracker-setup' ? 'AI is creating your live session...' : (currentView === 'diet' ? 'Cooking up your diet plan...' : 'Forging your workout routine...')} 
-          userName={userName}
-          goal={userGoal}
+          message={currentView.includes('tracker') || currentView === 'plan-day-selector' ? 'Reading Plan & Preparing Session...' : 'Generating Plan...'} 
+          userName={lastDietData?.name || lastWorkoutData?.name}
+          goal={lastDietData?.goal || lastWorkoutData?.focus}
         />
       );
     }
@@ -257,88 +241,93 @@ const App: React.FC = () => {
       );
     }
 
+    if (currentView === 'tracker-history-list') {
+      return (
+        <TrackerHistoryList 
+          onBack={() => navigate('tracker-setup')}
+          onViewSession={handleViewTrackerSession}
+        />
+      );
+    }
+
     if (currentView === 'tracker-details' && selectedHistorySession) {
       return (
         <TrackerHistoryDetails 
           session={selectedHistorySession}
-          onBack={() => navigate('history')}
+          onBack={() => navigate('tracker-history-list')}
           onRepeat={() => handleRepeatSession(selectedHistorySession)}
         />
       );
     }
 
-    if (generatedPlan) {
+    if (generatedPlan && (currentView === 'diet' || currentView === 'workout')) {
       return (
         <PlanDisplay 
           content={generatedPlan} 
           onReset={() => navigate('home')}
-          title={currentView === 'diet' ? 'Your Personalized Diet Plan' : 'Your Personalized Workout Plan'}
+          title={currentView === 'diet' ? 'Your Diet Plan' : 'Your Workout Plan'}
           onRegenerate={currentView === 'diet' ? handleDietRegenerate : undefined}
           currentPlanType={currentView === 'diet' ? 'diet' : 'workout'}
-          onCrossNavigate={handleCrossNavigate}
+          onCrossNavigate={(target) => { setGeneratedPlan(null); navigate(target); }}
+          onFollowPlan={currentView === 'workout' ? handleFollowPlan : undefined} // Only for workout
         />
       );
+    }
+    
+    if (currentView === 'plan-day-selector' && parsedPlan) {
+        return (
+            <PlanDaySelector 
+                plan={parsedPlan} 
+                onSelectDay={handleStartStructuredDay}
+                onCancel={() => navigate('workout')}
+            />
+        );
     }
 
     if (currentView === 'diet') return <DietForm onSubmit={handleDietSubmit} onCancel={() => navigate('home')} />;
     if (currentView === 'workout') return <WorkoutForm onSubmit={handleWorkoutSubmit} onCancel={() => navigate('home')} />;
     
-    if (currentView === 'tracker-setup') return <TrackerSetup onStartSession={handleStartTracker} onCancel={() => navigate('home')} />;
-    if (currentView === 'tracker-active' && activeSession) return <ActiveSession session={activeSession} onFinish={handleFinishSession} onCancel={() => navigate('home')} />;
+    if (currentView === 'tracker-setup') {
+      return (
+        <TrackerSetup 
+          onStartSession={handleStartTracker} 
+          onCancel={() => navigate('home')} 
+          onViewHistory={() => navigate('tracker-history-list')}
+        />
+      );
+    }
+    
+    if (currentView === 'tracker-active' && activeSession) {
+        return (
+            <ActiveSession 
+                session={activeSession} 
+                onFinish={handleFinishSession} 
+                onCancel={() => navigate('home')}
+                userWeight={getUserWeight()}
+            />
+        );
+    }
 
     return (
       <div className="flex flex-col items-center justify-center space-y-8 py-4">
         <div className="text-center max-w-2xl px-6 flex flex-col items-center">
-          <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 mb-2 tracking-tight">
-            TRANSFORM YOUR BODY
-          </h2>
-          <p className="text-lg text-gray-600 mb-8 max-w-lg">
-            Get AI-powered personalized plans and track your daily workouts live.
-          </p>
+          <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 mb-2 tracking-tight">TRANSFORM YOUR BODY</h2>
+          <p className="text-lg text-gray-600 mb-8 max-w-lg">Get AI-powered personalized plans and track your daily workouts live.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl px-6">
-          <button 
-            onClick={() => navigate('diet')}
-            className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
-          >
-            <div>
-              <h3 className="text-2xl font-extrabold text-gray-900 group-hover:text-red-600 transition-colors text-center">DIET PLAN</h3>
-              <p className="mt-2 text-gray-500 font-medium text-center text-sm">Nutrition tailored to your taste.</p>
-            </div>
-            <div className="flex items-center text-red-600 font-bold bg-red-50 px-4 py-2 rounded-full">
-              <span>Create Plan</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-            </div>
+          <button onClick={() => navigate('diet')} className="group bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg transition-all h-56 flex flex-col justify-center items-center gap-4">
+            <h3 className="text-2xl font-extrabold text-gray-900 group-hover:text-red-600">DIET PLAN</h3>
+            <div className="bg-red-50 text-red-600 px-4 py-2 rounded-full font-bold">Create Plan</div>
           </button>
-
-          <button 
-            onClick={() => navigate('workout')}
-            className="group relative bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
-          >
-            <div>
-              <h3 className="text-2xl font-extrabold text-gray-900 group-hover:text-red-600 transition-colors text-center">WORKOUT PLAN</h3>
-              <p className="mt-2 text-gray-500 font-medium text-center text-sm">Routine designed for your goals.</p>
-            </div>
-            <div className="flex items-center text-red-600 font-bold bg-red-50 px-4 py-2 rounded-full">
-              <span>Create Plan</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-            </div>
+          <button onClick={() => navigate('workout')} className="group bg-white border-2 border-red-100 hover:border-red-600 rounded-2xl p-8 shadow-lg transition-all h-56 flex flex-col justify-center items-center gap-4">
+            <h3 className="text-2xl font-extrabold text-gray-900 group-hover:text-red-600">WORKOUT PLAN</h3>
+            <div className="bg-red-50 text-red-600 px-4 py-2 rounded-full font-bold">Create Plan</div>
           </button>
-
-          <button 
-            onClick={() => navigate('tracker-setup')}
-            className="group relative bg-gray-900 border-2 border-gray-800 hover:border-red-500 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 text-left flex flex-col h-56 justify-center items-center gap-4"
-          >
+          <button onClick={() => navigate('tracker-setup')} className="group bg-gray-900 border-2 border-gray-800 hover:border-red-500 rounded-2xl p-8 shadow-lg transition-all h-56 flex flex-col justify-center items-center gap-4 relative">
             <div className="absolute top-3 right-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">NEW</div>
-            <div>
-              <h3 className="text-2xl font-extrabold text-white group-hover:text-red-500 transition-colors text-center">AI TRACKER</h3>
-              <p className="mt-2 text-gray-400 font-medium text-center text-sm">Interactive Live Session.</p>
-            </div>
-            <div className="flex items-center text-gray-900 font-bold bg-white px-4 py-2 rounded-full group-hover:bg-red-600 group-hover:text-white transition-colors">
-              <span>Start Workout</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-            </div>
+            <h3 className="text-2xl font-extrabold text-white group-hover:text-red-500">AI TRACKER</h3>
+            <div className="bg-white text-gray-900 group-hover:bg-red-600 group-hover:text-white px-4 py-2 rounded-full font-bold transition-colors">Start Workout</div>
           </button>
         </div>
       </div>
@@ -353,14 +342,10 @@ const App: React.FC = () => {
         onHistoryClick={() => navigate('history')}
       />
       <main className="flex-grow flex flex-col items-center p-4">
-        <div className="w-full max-w-5xl mt-6">
-          {renderContent()}
-        </div>
+        <div className="w-full max-w-5xl mt-6">{renderContent()}</div>
       </main>
-      <footer className="bg-white border-t py-6 mt-12">
-        <div className="text-center text-gray-500 text-sm font-semibold">
-          &copy; {new Date().getFullYear()} THE GYM CKBT. Train Hard.
-        </div>
+      <footer className="bg-white border-t py-6 mt-12 text-center text-gray-500 text-sm font-semibold">
+        &copy; {new Date().getFullYear()} THE GYM CKBT. Train Hard.
       </footer>
     </div>
   );

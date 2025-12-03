@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { DietFormData, WorkoutFormData, ExperienceLevel, TrackerSession, TrackerExercise } from "../types";
+import { DietFormData, WorkoutFormData, ExperienceLevel, TrackerSession, TrackerExercise, StructuredPlan } from "../types";
 
 const MODEL_NAME = 'gemini-2.5-flash';
 
@@ -306,5 +306,54 @@ export const generateAlternativeExercise = async (currentExercise: string, targe
       restTime: "60s",
       logs: []
     };
+  }
+};
+
+// --- NEW FUNCTION: PARSE HTML PLAN TO STRUCTURED DATA ---
+export const convertHtmlPlanToStructured = async (htmlPlan: string): Promise<StructuredPlan> => {
+  try {
+    const ai = getClient();
+    const prompt = `
+      READ this workout plan (HTML string): 
+      "${htmlPlan.substring(0, 5000)}" 
+      
+      TASK: Extract all the workout days and exercises into a structured JSON format so I can play them in an app.
+      
+      Return purely valid JSON (no markdown).
+      Structure:
+      {
+        "planTitle": "User's Workout Plan",
+        "days": [
+          {
+            "dayName": "Day 1 - Chest & Triceps", 
+            "focus": "Chest",
+            "exercises": [
+               { "name": "Bench Press", "targetSets": 3, "targetReps": "10-12", "restTime": "60s" }
+            ]
+          }
+        ]
+      }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: prompt,
+      config: { responseMimeType: 'application/json' }
+    });
+
+    const text = response.text || "{}";
+    const cleanJson = text.replace(/```json|```/g, '');
+    const data = JSON.parse(cleanJson);
+    
+    // Ensure logs are initialized
+    data.days.forEach((day: any) => {
+        day.exercises = day.exercises.map((ex: any) => ({ ...ex, logs: [] }));
+    });
+    
+    return data as StructuredPlan;
+
+  } catch (error: any) {
+    console.error("Error parsing plan:", error);
+    throw new Error("Could not read plan structure. Please try generating a new plan.");
   }
 };

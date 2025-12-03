@@ -107,3 +107,15 @@ export interface SavedPlan {
   title: string;
   content: string | TrackerSession; // HTML for plans, JSON for tracker
 }
+
+// --- NEW TYPES FOR PARSING PLANS ---
+export interface StructuredDay {
+  dayName: string; // e.g. "Day 1 - Chest"
+  focus: string;
+  exercises: TrackerExercise[];
+}
+
+export interface StructuredPlan {
+  planTitle: string;
+  days: StructuredDay[];
+}
