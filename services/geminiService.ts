@@ -275,7 +275,12 @@ export const generateWorkoutSession = async (targetMuscle: string, exerciseCount
             .filter((ex: any) => ex && ex.name) // Filter out null or missing exercises
             .map((ex: any) => ({ ...ex, logs: [] }));
     } else {
-        data.exercises = [];
+        // Fallback exercises
+        data.exercises = [
+            { name: "Pushups", targetSets: 3, targetReps: "12", restTime: "60s", logs: [] },
+            { name: "Squats", targetSets: 3, targetReps: "15", restTime: "60s", logs: [] },
+            { name: "Lunges", targetSets: 3, targetReps: "12", restTime: "60s", logs: [] }
+        ];
     }
     data.startTime = new Date().toISOString();
     
@@ -327,12 +332,17 @@ export const convertHtmlPlanToStructured = async (htmlPlan: string): Promise<Str
   try {
     const ai = getClient();
     const prompt = `
-      READ this workout plan (HTML string): 
-      "${htmlPlan.substring(0, 5000)}" 
+      READ this workout plan (HTML string) carefully: 
+      "${htmlPlan.substring(0, 8000)}" 
       
       TASK: Extract ALL the workout days and exercises found in the plan.
-      CRITICAL: You must extract EVERY SINGLE DAY mentioned (Day 1, Day 2, Day 3... up to Day 7). Do NOT just return the first day. Return the complete schedule.
-
+      
+      CRITICAL INSTRUCTIONS:
+      1. EXTRACT EVERY SINGLE DAY mentioned (Day 1, Day 2... Day 6, Day 7). Do NOT skip any days.
+      2. MAINTAIN THE EXACT SEQUENCE of exercises as they appear in the HTML table for each day.
+      3. Do NOT invent exercises. Only extract what is written.
+      4. Try to parse "Sets" and "Reps" into numbers/strings (e.g. targetSets: 3, targetReps: "10-12").
+      
       Return purely valid JSON (no markdown).
       Structure:
       {
@@ -345,11 +355,7 @@ export const convertHtmlPlanToStructured = async (htmlPlan: string): Promise<Str
                { "name": "Bench Press", "targetSets": 3, "targetReps": "10-12", "restTime": "60s" }
             ]
           },
-          {
-            "dayName": "Day 2 - Back & Biceps",
-            "focus": "Back",
-             "exercises": [...]
-          }
+          ...
         ]
       }
     `;
@@ -367,12 +373,25 @@ export const convertHtmlPlanToStructured = async (htmlPlan: string): Promise<Str
     // Ensure logs are initialized and exercises exists
     if (data.days && Array.isArray(data.days)) {
         data.days.forEach((day: any) => {
-            if (!day.exercises || !Array.isArray(day.exercises)) day.exercises = [];
+            if (!day.exercises || !Array.isArray(day.exercises)) {
+                day.exercises = [];
+            }
             
             // Filter out corrupted exercises and add logs
             day.exercises = day.exercises
                 .filter((ex: any) => ex && ex.name)
                 .map((ex: any) => ({ ...ex, logs: [] }));
+
+            // --- SAFETY FALLBACK: If extraction failed and exercises is empty ---
+            if (day.exercises.length === 0) {
+               day.exercises.push({
+                   name: "Manual Entry (Extraction Failed)",
+                   targetSets: 3,
+                   targetReps: "10-12",
+                   restTime: "60s",
+                   logs: []
+               });
+            }
         });
     } else {
         data.days = [];

@@ -72,16 +72,20 @@ const PlanDaySelector: React.FC<PlanDaySelectorProps> = ({ plan, onSelectDay, on
           plan.days.map((day, idx) => {
            const isCompleted = completedDays.includes(day.dayName);
            const exerciseCount = day.exercises ? day.exercises.length : 0;
+           const isDisabled = exerciseCount === 0;
            
            return (
              <button
                key={idx}
-               onClick={() => onSelectDay(day)}
+               onClick={() => !isDisabled && onSelectDay(day)}
+               disabled={isDisabled}
                className={`
-                 flex flex-col items-start p-5 rounded-xl border-2 transition-all group relative overflow-hidden
-                 ${isCompleted 
+                 flex flex-col items-start p-5 rounded-xl border-2 transition-all group relative overflow-hidden text-left
+                 ${isDisabled ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed' : 
+                   isCompleted 
                     ? 'border-green-200 bg-green-50 hover:bg-green-100' 
-                    : 'border-gray-100 hover:border-red-500 hover:bg-red-50'}
+                    : 'border-gray-100 hover:border-red-500 hover:bg-red-50'
+                 }
                `}
              >
                {isCompleted && (
@@ -91,10 +95,10 @@ const PlanDaySelector: React.FC<PlanDaySelectorProps> = ({ plan, onSelectDay, on
                )}
 
                <div className="flex justify-between w-full items-center mb-2">
-                  <span className={`font-black text-lg uppercase ${isCompleted ? 'text-green-700' : 'text-red-600'}`}>
+                  <span className={`font-black text-lg uppercase ${isDisabled ? 'text-gray-400' : isCompleted ? 'text-green-700' : 'text-red-600'}`}>
                     {day.dayName}
                   </span>
-                  <span className="bg-white border border-gray-200 text-xs font-bold px-2 py-1 rounded-full group-hover:border-red-200">
+                  <span className={`text-xs font-bold px-2 py-1 rounded-full border ${isDisabled ? 'bg-gray-100 text-gray-400' : 'bg-white border-gray-200 group-hover:border-red-200'}`}>
                      {exerciseCount} Exercises
                   </span>
                </div>
@@ -102,7 +106,10 @@ const PlanDaySelector: React.FC<PlanDaySelectorProps> = ({ plan, onSelectDay, on
                   Focus: {day.focus || 'General'}
                </div>
                <div className="mt-2 text-xs text-gray-400">
-                  {day.exercises ? day.exercises.slice(0, 3).map(e => e?.name || 'Exercise').join(', ') : 'Click to view exercises'}...
+                  {isDisabled 
+                    ? 'No exercises detected. Try generating a new plan.'
+                    : day.exercises ? day.exercises.slice(0, 3).map(e => e?.name || 'Exercise').join(', ') : 'Click to view exercises'
+                  }...
                </div>
              </button>
            );

@@ -154,10 +154,16 @@ const App: React.FC = () => {
   };
 
   const handleStartStructuredDay = (day: StructuredDay) => {
+    // We map the day exercises directly to the session.
+    // NOTE: We use the Day Name (e.g. "Day 1 - Chest") as the targetMuscle.
+    // This ensures it appears in history as "Day 1..." so users can see they followed the plan.
     const session: TrackerSession = {
-       targetMuscle: day.focus || day.dayName,
+       targetMuscle: day.dayName, // Use the specific day name for history logging
        warmup: ["5 mins Treadmill/Cycle", "Dynamic Stretching", "Arm Circles", "Torso Twists"], // Default warmup
-       exercises: day.exercises,
+       exercises: day.exercises.map(ex => ({
+          ...ex,
+          logs: [] // Ensure logs are empty to start fresh
+       })),
        startTime: new Date().toISOString()
     };
     setActiveSession(session);
@@ -177,7 +183,7 @@ const App: React.FC = () => {
       id: Date.now().toString(),
       type: 'tracker',
       date: new Date().toISOString(),
-      title: `${session.targetMuscle} Workout`,
+      title: session.targetMuscle, // This will now show "Day 1 - Chest" if followed from plan
       content: session
     };
     

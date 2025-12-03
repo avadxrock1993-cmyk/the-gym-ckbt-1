@@ -255,18 +255,42 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
       }
   };
 
+  const handleStartManualSession = () => {
+    // Inject a manual exercise so the user can proceed
+    const manualSession = {
+       ...session,
+       exercises: [{
+           name: "Manual Exercise (Tap to Rename)",
+           targetSets: 3,
+           targetReps: "10-12",
+           restTime: "60s",
+           logs: []
+       }]
+    };
+    setSession(manualSession);
+    setCurrentStep('workout');
+  };
+
   // --- RENDER ERROR IF DATA INVALID ---
   if (!hasExercises) {
     return (
       <div className="bg-white p-8 rounded-xl shadow-lg text-center flex flex-col items-center justify-center min-h-[300px]">
         <h2 className="text-2xl font-black text-red-600 mb-2">Error Loading Workout</h2>
         <p className="text-gray-600 mb-6">No exercises were found for this session. The generated plan might be empty.</p>
-        <button 
-          onClick={onCancel}
-          className="bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300"
-        >
-          Go Back
-        </button>
+        <div className="flex gap-4">
+            <button 
+            onClick={onCancel}
+            className="bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300"
+            >
+            Go Back
+            </button>
+            <button 
+            onClick={handleStartManualSession}
+            className="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 shadow-md"
+            >
+            Start Manual Session
+            </button>
+        </div>
       </div>
     );
   }
