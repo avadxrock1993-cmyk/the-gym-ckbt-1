@@ -205,6 +205,20 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
     }
   };
 
+  // Helper for skipping entirely without logging
+  const handleSkipExerciseEntirely = () => {
+      // Just move to next without calculating calories or logs
+      if (currentExIndex < session.exercises.length - 1) {
+          setCurrentExIndex(prev => prev + 1);
+          setWeight('');
+          setReps('');
+          setPreviousBest(null); 
+          setShowSkipMenu(false);
+      } else {
+          setCurrentStep('summary');
+      }
+  };
+
   const handleAiReplace = async () => {
     setIsReplacing(true);
     try {
@@ -449,15 +463,22 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
         {/* SKIP / REPLACE MENU */}
         {showSkipMenu && (
             <div className="mb-4 bg-orange-50 p-4 rounded-xl border-2 border-orange-200 animate-fadeIn">
-                <h4 className="font-bold text-orange-800 mb-3 text-sm uppercase">Replace Exercise</h4>
+                <h4 className="font-bold text-orange-800 mb-3 text-sm uppercase">Modify Workout</h4>
                 
                 <div className="flex gap-2 mb-4">
                     <button 
                         onClick={handleAiReplace}
                         disabled={isReplacing}
-                        className="flex-1 py-2 bg-orange-200 text-orange-800 font-bold rounded-lg hover:bg-orange-300 text-sm"
+                        className="flex-1 py-3 bg-orange-200 text-orange-800 font-bold rounded-lg hover:bg-orange-300 text-xs uppercase"
                     >
-                        {isReplacing ? 'Asking AI...' : '🤖 Ask AI Suggestion'}
+                        {isReplacing ? 'Asking AI...' : '🤖 Find Alternative'}
+                    </button>
+                    
+                    <button 
+                        onClick={handleSkipExerciseEntirely}
+                        className="flex-1 py-3 bg-gray-800 text-white font-bold rounded-lg hover:bg-gray-900 text-xs uppercase"
+                    >
+                        ⏩ Skip Entirely
                     </button>
                 </div>
                 
@@ -501,10 +522,10 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
                 <div className="flex justify-between items-center mb-2">
                     <p className="text-sm font-bold text-gray-700">Log Set {currentExercise.logs.length + 1}</p>
                     <button 
-                    onClick={() => setShowSkipMenu(true)}
-                    className="text-xs text-red-500 font-bold hover:underline"
+                        onClick={() => setShowSkipMenu(true)}
+                        className="text-xs text-red-500 font-bold hover:underline"
                     >
-                    Skip / Replace ↻
+                    Skip / Replace / Modify ↻
                     </button>
                 </div>
              )}
@@ -528,13 +549,26 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
                  className="w-1/2 p-3 border-2 border-gray-200 focus:border-red-500 focus:outline-none rounded-lg text-lg font-bold text-center"
                />
              </div>
-             <button 
-               onClick={handleLogSet}
-               disabled={weight === '' || reps === ''}
-               className="w-full py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 transition-colors shadow-md active:scale-95 transform"
-             >
-               ✅ Log Set
-             </button>
+             
+             <div className="flex flex-col gap-2">
+                 <button 
+                   onClick={handleLogSet}
+                   disabled={weight === '' || reps === ''}
+                   className="w-full py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 transition-colors shadow-md active:scale-95 transform"
+                 >
+                   ✅ Log Set
+                 </button>
+                 
+                 {/* SKIP REMAINING SETS BUTTON */}
+                 {currentExercise.logs.length > 0 && (
+                     <button 
+                        onClick={handleNextExercise}
+                        className="w-full py-2 bg-gray-200 text-gray-600 font-bold rounded-lg hover:bg-gray-300 text-xs uppercase"
+                     >
+                        Finish Remaining Sets (Next Ex) →
+                     </button>
+                 )}
+             </div>
           </div>
         ) : (
           <div className="text-center py-4 mt-auto">
