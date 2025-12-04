@@ -4,11 +4,12 @@ import { SavedPlan } from '../types';
 
 interface TrackerSetupProps {
   onStartSession: (muscle: string, exerciseCount: number) => void;
+  onStartManual: (muscle: string, exerciseCount: number) => void; // New Prop
   onCancel: () => void;
-  onViewHistory: () => void; // New prop for navigation
+  onViewHistory: () => void;
 }
 
-const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel, onViewHistory }) => {
+const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onStartManual, onCancel, onViewHistory }) => {
   const [target, setTarget] = useState('');
   const [customTarget, setCustomTarget] = useState('');
   const [exerciseCount, setExerciseCount] = useState(6);
@@ -48,15 +49,29 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel, o
     setPushFocus(null);
   };
 
-  const handleStart = () => {
+  const getFinalTarget = () => {
     let finalTarget = customTarget || target;
     if (finalTarget === 'Push Day' && pushFocus) {
       finalTarget = `Push Day (${pushFocus} Focused)`;
     }
+    return finalTarget;
+  };
+
+  const handleStartAI = () => {
+    const finalTarget = getFinalTarget();
     if (finalTarget) {
       onStartSession(finalTarget, exerciseCount);
     }
   };
+
+  const handleStartManual = () => {
+    const finalTarget = getFinalTarget();
+    if (finalTarget) {
+      onStartManual(finalTarget, exerciseCount);
+    }
+  };
+
+  const isStartDisabled = (!target && !customTarget) || (target === 'Push Day' && !pushFocus);
 
   return (
     <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-red-600 animate-fadeIn">
@@ -133,30 +148,42 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onCancel, o
         </div>
         <input 
           type="range" 
-          min="3" max="8" step="1"
+          min="1" max="10" step="1"
           value={exerciseCount}
           onChange={(e) => setExerciseCount(parseInt(e.target.value))}
           className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-red-600"
         />
       </div>
 
-      <div className="flex gap-4 flex-col">
-         <div className="flex gap-4">
-            <button onClick={onCancel} className="flex-1 py-3 text-gray-600 font-bold bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
-            <button 
-              onClick={handleStart} 
-              disabled={(!target && !customTarget) || (target === 'Push Day' && !pushFocus)}
-              className="flex-[2] py-3 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 shadow-lg"
-            >
-              Start Session
-            </button>
-         </div>
+      {/* Action Buttons */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+         <button 
+           onClick={handleStartAI} 
+           disabled={isStartDisabled}
+           className="py-4 bg-red-600 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-red-700 shadow-lg flex flex-col items-center justify-center gap-1"
+         >
+           <span className="text-lg">🤖 Generate with AI</span>
+           <span className="text-xs font-normal opacity-90">Auto-suggests exercises</span>
+         </button>
          
-         {/* Enhanced Log Button */}
-         <button onClick={onViewHistory} className="w-full py-3 mt-2 text-red-600 font-bold bg-white border-2 border-red-100 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
-            <span>📜</span> View Workout Logs
+         <button 
+           onClick={handleStartManual} 
+           disabled={isStartDisabled}
+           className="py-4 bg-gray-800 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-gray-900 shadow-lg flex flex-col items-center justify-center gap-1"
+         >
+           <span className="text-lg">✍️ Create Manually</span>
+           <span className="text-xs font-normal opacity-90">You choose exercises</span>
          </button>
       </div>
+
+      <button onClick={onCancel} className="w-full py-3 text-gray-600 font-bold bg-gray-100 rounded-lg hover:bg-gray-200 mb-2">
+        Cancel
+      </button>
+         
+      {/* Enhanced Log Button */}
+      <button onClick={onViewHistory} className="w-full py-3 mt-2 text-red-600 font-bold bg-white border-2 border-red-100 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+        <span>📜</span> View Workout Logs
+      </button>
     </div>
   );
 };

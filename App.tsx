@@ -12,7 +12,7 @@ import TrackerHistoryDetails from './components/TrackerHistoryDetails';
 import TrackerHistoryList from './components/TrackerHistoryList';
 import PlanDaySelector from './components/PlanDaySelector'; // NEW
 import { DietFormData, WorkoutFormData, TrackerSession, SavedPlan, StructuredPlan, StructuredDay } from './types';
-import { generateDietPlan, generateWorkoutPlan, generateWorkoutSession, convertHtmlPlanToStructured } from './services/geminiService';
+import { generateDietPlan, generateWorkoutPlan, generateWorkoutSession, convertHtmlPlanToStructured, createManualWorkoutSession } from './services/geminiService';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'home' | 'diet' | 'workout' | 'tracker-setup' | 'tracker-active' | 'history' | 'tracker-history-list' | 'tracker-details' | 'plan-day-selector'>('home');
@@ -138,6 +138,13 @@ const App: React.FC = () => {
       alert("Failed to create session.");
     }
     setIsLoading(false);
+  };
+
+  const handleStartManualTracker = (muscle: string, exerciseCount: number) => {
+    const session = createManualWorkoutSession(muscle, exerciseCount);
+    setActiveSession(session);
+    localStorage.setItem('current_workout_session', JSON.stringify(session));
+    navigate('tracker-active');
   };
   
   const handleFollowPlan = async () => {
@@ -297,6 +304,7 @@ const App: React.FC = () => {
       return (
         <TrackerSetup 
           onStartSession={handleStartTracker} 
+          onStartManual={handleStartManualTracker}
           onCancel={() => navigate('home')} 
           onViewHistory={() => navigate('tracker-history-list')}
         />

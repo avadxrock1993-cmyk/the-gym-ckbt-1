@@ -25,22 +25,21 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
     if (!element) return;
 
     setIsDownloading(true);
-
     window.scrollTo(0, 0);
 
     // Use html2pdf if available
     // @ts-ignore
     if (typeof window.html2pdf !== 'undefined') {
        const opt = {
-        margin:       [10, 10, 10, 10], // Increased margins for better safety on mobile
+        margin:       [10, 10, 10, 10], // Standard 10mm margins
         filename:     'THE_GYM_CKBT_PLAN.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { 
-          scale: 2, 
+          scale: 2, // High quality scale
           useCORS: true, 
           letterRendering: true,
-          scrollY: 0, 
-          windowWidth: 1000 // Force a specific width calculation to prevent cut-off on mobile
+          scrollY: 0,
+          // Removed windowWidth to allow responsive layout to adapt to A4 width naturally
         },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
@@ -134,10 +133,9 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ content, onReset, title, onRe
           </div>
         </div>
 
-        {/* Render the HTML directly - Added break-word to prevent horizontal overflow in PDF */}
+        {/* Render the HTML directly */}
         <div 
-          className="prose prose-red max-w-none text-gray-800 break-words"
-          style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+          className="prose prose-red max-w-none text-gray-800"
           dangerouslySetInnerHTML={{ __html: content }}
         />
 

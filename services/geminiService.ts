@@ -292,6 +292,26 @@ export const generateWorkoutSession = async (targetMuscle: string, exerciseCount
   }
 };
 
+export const createManualWorkoutSession = (targetMuscle: string, exerciseCount: number): TrackerSession => {
+  const exercises: TrackerExercise[] = [];
+  for (let i = 1; i <= exerciseCount; i++) {
+    exercises.push({
+      name: `Exercise ${i} (Tap Replace to Rename)`,
+      targetSets: 3,
+      targetReps: "10-12",
+      restTime: "60s",
+      logs: []
+    });
+  }
+
+  return {
+    targetMuscle,
+    warmup: ["5 mins Cardio", "Dynamic Stretching"],
+    exercises,
+    startTime: new Date().toISOString()
+  };
+};
+
 export const generateAlternativeExercise = async (currentExercise: string, targetMuscle: string): Promise<TrackerExercise> => {
   try {
     const ai = getClient();
