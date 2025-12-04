@@ -292,11 +292,15 @@ export const generateWorkoutSession = async (targetMuscle: string, exerciseCount
   }
 };
 
-export const createManualWorkoutSession = (targetMuscle: string, exerciseCount: number): TrackerSession => {
+export const createManualWorkoutSession = (targetMuscle: string, exerciseCount: number, customNames?: string[]): TrackerSession => {
   const exercises: TrackerExercise[] = [];
-  for (let i = 1; i <= exerciseCount; i++) {
+  for (let i = 0; i < exerciseCount; i++) {
+    const name = customNames && customNames[i] && customNames[i].trim() !== "" 
+        ? customNames[i] 
+        : `Exercise ${i + 1} (Tap Replace to Rename)`;
+        
     exercises.push({
-      name: `Exercise ${i} (Tap Replace to Rename)`,
+      name: name,
       targetSets: 3,
       targetReps: "10-12",
       restTime: "60s",

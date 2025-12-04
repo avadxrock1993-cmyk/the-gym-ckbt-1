@@ -4,7 +4,7 @@ import { SavedPlan } from '../types';
 
 interface TrackerSetupProps {
   onStartSession: (muscle: string, exerciseCount: number) => void;
-  onStartManual: (muscle: string, exerciseCount: number) => void; // New Prop
+  onStartManual: (muscle: string, exerciseCount: number, customNames?: string[]) => void;
   onCancel: () => void;
   onViewHistory: () => void;
 }
@@ -17,6 +17,10 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onStartManu
   // Push Day Specific State
   const [pushFocus, setPushFocus] = useState<'Chest' | 'Shoulder' | null>(null);
   const [recommendedPushFocus, setRecommendedPushFocus] = useState<'Chest' | 'Shoulder' | null>(null);
+
+  // Manual Config State
+  const [isConfiguringManual, setIsConfiguringManual] = useState(false);
+  const [manualExerciseNames, setManualExerciseNames] = useState<string[]>([]);
 
   const COMMON_TARGETS = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Abs', 'Push Day', 'Pull Day'];
 
@@ -43,6 +47,15 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onStartManu
     }
   }, []);
 
+  // Reset manual names when count changes
+  useEffect(() => {
+    setManualExerciseNames(prev => {
+        const newNames = [...prev];
+        // If count increased, fill with empty strings. If decreased, it naturally slices in the render or submit logic.
+        return newNames;
+    });
+  }, [exerciseCount]);
+
   const handleTargetClick = (t: string) => {
     setTarget(t);
     setCustomTarget('');
@@ -64,15 +77,75 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onStartManu
     }
   };
 
-  const handleStartManual = () => {
+  const handlePreManualSetup = () => {
+     // Initialize names array with current count
+     const currentNames = [...manualExerciseNames];
+     // Fill up to count if needed
+     for(let i=0; i<exerciseCount; i++) {
+         if(!currentNames[i]) currentNames[i] = "";
+     }
+     setManualExerciseNames(currentNames);
+     setIsConfiguringManual(true);
+  };
+
+  const handleManualNameChange = (index: number, val: string) => {
+      const newNames = [...manualExerciseNames];
+      newNames[index] = val;
+      setManualExerciseNames(newNames);
+  };
+
+  const handleStartManualFinal = () => {
     const finalTarget = getFinalTarget();
     if (finalTarget) {
-      onStartManual(finalTarget, exerciseCount);
+      // Filter or pass all names. Logic in service handles mapping.
+      onStartManual(finalTarget, exerciseCount, manualExerciseNames);
     }
   };
 
   const isStartDisabled = (!target && !customTarget) || (target === 'Push Day' && !pushFocus);
 
+  // --- RENDER MANUAL CONFIGURATION SCREEN ---
+  if (isConfiguringManual) {
+      return (
+        <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-gray-800 animate-fadeIn max-h-[85vh] overflow-y-auto">
+             <div className="text-center mb-6">
+                <h1 className="text-2xl font-black text-gray-900 uppercase">Name Your Exercises</h1>
+                <p className="text-sm text-gray-500">Enter names for your {exerciseCount} exercises.</p>
+             </div>
+
+             <div className="space-y-3 mb-8">
+                 {Array.from({ length: exerciseCount }).map((_, idx) => (
+                     <div key={idx} className="flex items-center gap-3">
+                         <span className="text-sm font-bold text-gray-400 w-6">#{idx + 1}</span>
+                         <input 
+                            type="text"
+                            value={manualExerciseNames[idx] || ''}
+                            onChange={(e) => handleManualNameChange(idx, e.target.value)}
+                            placeholder={`Exercise ${idx + 1} Name`}
+                            className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:border-gray-800 focus:outline-none font-semibold"
+                         />
+                     </div>
+                 ))}
+             </div>
+
+             <button 
+               onClick={handleStartManualFinal}
+               className="w-full py-4 bg-gray-900 text-white font-bold rounded-lg hover:bg-black shadow-lg mb-3"
+             >
+               🚀 Start Workout
+             </button>
+             
+             <button 
+               onClick={() => setIsConfiguringManual(false)}
+               className="w-full py-3 text-gray-600 font-bold bg-gray-100 rounded-lg hover:bg-gray-200"
+             >
+               Back
+             </button>
+        </div>
+      );
+  }
+
+  // --- RENDER SETUP SCREEN ---
   return (
     <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-red-600 animate-fadeIn">
       
@@ -167,12 +240,12 @@ const TrackerSetup: React.FC<TrackerSetupProps> = ({ onStartSession, onStartManu
          </button>
          
          <button 
-           onClick={handleStartManual} 
+           onClick={handlePreManualSetup} 
            disabled={isStartDisabled}
            className="py-4 bg-gray-800 text-white font-bold rounded-lg disabled:opacity-50 hover:bg-gray-900 shadow-lg flex flex-col items-center justify-center gap-1"
          >
            <span className="text-lg">✍️ Create Manually</span>
-           <span className="text-xs font-normal opacity-90">You choose exercises</span>
+           <span className="text-xs font-normal opacity-90">Name your exercises</span>
          </button>
       </div>
 

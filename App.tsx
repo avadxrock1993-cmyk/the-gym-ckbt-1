@@ -140,8 +140,8 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
-  const handleStartManualTracker = (muscle: string, exerciseCount: number) => {
-    const session = createManualWorkoutSession(muscle, exerciseCount);
+  const handleStartManualTracker = (muscle: string, exerciseCount: number, customNames?: string[]) => {
+    const session = createManualWorkoutSession(muscle, exerciseCount, customNames);
     setActiveSession(session);
     localStorage.setItem('current_workout_session', JSON.stringify(session));
     navigate('tracker-active');
