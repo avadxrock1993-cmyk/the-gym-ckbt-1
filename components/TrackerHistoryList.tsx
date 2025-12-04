@@ -158,6 +158,12 @@ const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewS
              const isExpanded = expandedDate === dateKey;
              const totalWorkouts = sessions.length;
              
+             // Calculate Daily Total Calories
+             const dailyCalories = sessions.reduce((acc, item) => {
+                 const session = item.content as TrackerSession;
+                 return acc + getSessionCalories(session);
+             }, 0);
+             
              return (
                 <div key={dateKey} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     {/* Date Tile Header - Clickable */}
@@ -175,9 +181,10 @@ const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewS
                                 <h3 className={`font-black text-lg uppercase tracking-tight ${isExpanded ? 'text-red-700' : 'text-gray-800'}`}>
                                     {dateKey}
                                 </h3>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
-                                    {totalWorkouts} {totalWorkouts === 1 ? 'Session' : 'Sessions'} Recorded
-                                </p>
+                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs font-bold uppercase tracking-wide">
+                                    <span className="text-gray-400">{totalWorkouts} {totalWorkouts === 1 ? 'Session' : 'Sessions'}</span>
+                                    <span className="text-red-500 font-extrabold">🔥 {dailyCalories} Cal</span>
+                                </div>
                             </div>
                         </div>
                         <div className={`transform transition-transform ${isExpanded ? 'rotate-180 text-red-600' : 'text-gray-400'}`}>
