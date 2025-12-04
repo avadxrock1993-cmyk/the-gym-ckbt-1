@@ -285,6 +285,14 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
     setCurrentStep('workout');
   };
 
+  const handleFinishWithData = () => {
+      // Inject calculated calories into session before saving
+      onFinish({
+          ...session,
+          totalCaloriesBurned: caloriesBurned
+      });
+  };
+
   // --- RENDER ERROR IF DATA INVALID ---
   if (!hasExercises) {
     return (
@@ -380,7 +388,7 @@ const ActiveSession: React.FC<ActiveSessionProps> = ({ session: initialSession, 
         </div>
 
         <button 
-          onClick={() => onFinish(session)}
+          onClick={handleFinishWithData}
           className="w-full py-3 bg-gray-900 text-white font-bold rounded-xl"
         >
           Save & Return Home

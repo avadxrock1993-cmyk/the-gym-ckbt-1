@@ -98,6 +98,7 @@ export interface TrackerSession {
   exercises: TrackerExercise[];
   startTime: string;
   endTime?: string;
+  totalCaloriesBurned?: number; // Added field for calorie tracking
 }
 
 export interface SavedPlan {

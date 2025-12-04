@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { SavedPlan, TrackerSession } from '../types';
+import { SavedPlan, TrackerSession, TrackerSetLog } from '../types';
 
 interface TrackerHistoryListProps {
   onBack: () => void;
@@ -101,6 +101,32 @@ const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewS
      if (t.includes('arm') || t.includes('bicep')) return 'bg-purple-100 text-purple-700 border-purple-200';
      return 'bg-gray-100 text-gray-700 border-gray-200';
   };
+  
+  // Calculate or retrieve calorie count
+  const getSessionCalories = (session: TrackerSession) => {
+    if (session.totalCaloriesBurned !== undefined) {
+        return session.totalCaloriesBurned;
+    }
+    
+    // Fallback calculation for old sessions
+    let totalVolume = 0;
+    const defaultWeight = 70; // Assume 70kg user weight for fallback
+    let sets = 0;
+
+    if (session.exercises) {
+        session.exercises.forEach(ex => {
+            if (ex.logs) {
+                sets += ex.logs.length;
+                ex.logs.forEach(log => {
+                    if (log.weight > 0) totalVolume += (log.weight * log.reps);
+                    else totalVolume += (defaultWeight * 0.6 * log.reps);
+                });
+            }
+        });
+    }
+    
+    return Math.round((totalVolume * 0.0005) + (defaultWeight * 0.05 * sets));
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 animate-fadeIn pb-20">
@@ -168,6 +194,7 @@ const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewS
                                 const session = item.content as TrackerSession;
                                 const setsCompleted = session.exercises ? session.exercises.reduce((acc, ex) => acc + (ex.logs ? ex.logs.length : 0), 0) : 0;
                                 const startTime = new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                const calories = getSessionCalories(session);
 
                                 return (
                                     <div 
@@ -190,6 +217,10 @@ const TrackerHistoryList: React.FC<TrackerHistoryListProps> = ({ onBack, onViewS
                                                 <div>
                                                     <span className="text-gray-400 text-[10px] font-bold uppercase block">Total Sets</span>
                                                     <span className="font-bold text-gray-800">{setsCompleted}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-400 text-[10px] font-bold uppercase block">Burned</span>
+                                                    <span className="font-bold text-red-600">🔥 {calories}</span>
                                                 </div>
                                             </div>
                                         </div>
